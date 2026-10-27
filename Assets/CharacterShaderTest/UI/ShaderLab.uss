@@ -214,12 +214,6 @@
     white-space: normal;
 }
 
-.lab-root .time-label {
-    -unity-text-align: middle-right;
-    color: var(--lab-text-dim);
-    font-size: 11px;
-}
-
 .lab-root .expand-button {
     position: absolute;
     left: 12px; top: 12px;

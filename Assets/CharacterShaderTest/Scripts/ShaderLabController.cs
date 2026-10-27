@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 // - A/B 비교: 각 쪽에 원본(URP Lit) 또는 스타일 프리셋을 고른다
 // - 맵·기능 스위치, 디버그 보기
 // - 환경(하늘·환경광·안개·후처리·반사), 조명 프리셋, 후처리 효과 켜고 끄기
-// - 애니메이션 테스트, 커스터마이징(옷·무기)
+// - 커스터마이징(옷)
 public class ShaderLabController : MonoBehaviour
 {
     [Serializable]
@@ -52,7 +52,6 @@ public class ShaderLabController : MonoBehaviour
     public float SunYawOffset { get; private set; }
     public bool PostProcessing { get; private set; } = true;
     public LabDebugView DebugView { get; private set; }
-    public AnimationTester Animation { get; private set; }
     public IReadOnlyDictionary<LabMap, bool> Maps => maps;
     public IReadOnlyDictionary<LabFeature, bool> Features => features;
 
@@ -75,8 +74,6 @@ public class ShaderLabController : MonoBehaviour
     {
         foreach (var c in Characters)
             c.Initialize();
-        Animation = new AnimationTester(Characters.Select(c => c.ActiveAnimator));
-
         StyleB = Mathf.Clamp(defaultStyleB, 0, styles.Count - 1);
         RefreshCharacters();
         if (environments.Count > 0)
@@ -86,15 +83,40 @@ public class ShaderLabController : MonoBehaviour
         SetDebugView(LabDebugView.Off);
     }
 
-    void Update() => Animation?.Tick();
-
-    void OnDestroy()
-    {
-        Animation?.Dispose();
-        Shader.SetGlobalFloat(ShaderLabProperties.DebugView, 0f);
-    }
+    void OnDestroy() => Shader.SetGlobalFloat(ShaderLabProperties.DebugView, 0f);
 
     void NotifyChanged() => Changed?.Invoke();
+
+    // 셰이더 관련 상태를 처음으로 되돌린다 (강의 모드가 용어마다 랩을 새로 준비할 때 쓴다)
+    // 스위치는 모두 켜고, A = 원본·B = 기본 스타일, 옷은 처음 고른 것, 첫 환경·환경 기본 조명, 후처리 켬, 디버그 보기 끔
+    // (비교 방식·카메라는 CompareView·OrbitCamera 가 따로 가진다)
+    public void ResetState()
+    {
+        foreach (var map in maps.Keys.ToList())
+            maps[map] = true;
+        foreach (var feature in features.Keys.ToList())
+            features[feature] = true;
+        StyleA = LitStyle;
+        StyleB = Mathf.Clamp(defaultStyleB, 0, styles.Count - 1);
+
+        foreach (var slot in Slots)
+            if (GetSlotSelection(slot.name) != slot.defaultIndex)
+                SelectSlotOption(slot.name, slot.defaultIndex);
+
+        // 후처리 효과·톤매핑·노출을 바꾼 복사본을 버리고 환경을 처음부터 다시 건다
+        if (volume != null && volume.HasInstantiatedProfile())
+        {
+            Destroy(volume.profile);
+            volume.profile = null;
+        }
+        Lighting = 0;
+        SunYawOffset = 0f;
+        if (environments.Count > 0)
+            SetEnvironment(0);
+        SetPostProcessing(true);
+        SetDebugView(LabDebugView.Off);
+        RefreshCharacters();
+    }
 
     // ---------------- 스타일 · A/B ----------------
     public string StyleName(int style) => style == LitStyle ? "원본 (URP Lit)" : styles[style].displayName;
@@ -275,28 +297,6 @@ public class ShaderLabController : MonoBehaviour
         NotifyChanged();
     }
 
-    // ---------------- 애니메이션 ----------------
-    // 클립 목록은 B(새 쉐이더) 캐릭터 기준. 원본 캐릭터도 같은 클립을 같이 재생한다
-    public IReadOnlyList<AnimationClip> Clips => characterB != null ? characterB.clips : Array.Empty<AnimationClip>();
-
-    public void PlayClip(AnimationClip clip)
-    {
-        Animation.Play(clip);
-        NotifyChanged();
-    }
-
-    public void StopAnimation()
-    {
-        Animation.Stop();
-        NotifyChanged();
-    }
-
-    public void SetRootMotion(bool on)
-    {
-        Animation.SetRootMotion(on);
-        NotifyChanged();
-    }
-
     // ---------------- 커스터마이징 ----------------
     public IReadOnlyList<LabCharacter.CustomizationSlot> Slots =>
         characterB != null ? characterB.slots : Array.Empty<LabCharacter.CustomizationSlot>();
@@ -305,28 +305,10 @@ public class ShaderLabController : MonoBehaviour
 
     public void SelectSlotOption(string slot, int index)
     {
-        // 옷을 바꾸면 Animator(뼈대)도 바뀐다 → 재생 중이던 클립을 기억했다가 새 옷에서 이어서 재생
-        var clip = Animation.Clip;
-        float time = Animation.Time;
-        bool playing = Animation.Playing;
-        bool rootMotion = Animation.RootMotion;
-        float speed = Animation.Speed;
-        bool loop = Animation.Loop;
-        Animation.Dispose();
-
-        // 두 캐릭터가 같은 옷·무기를 입어야 비교가 된다
+        // 두 캐릭터가 같은 옷을 입어야 비교가 된다
         foreach (var c in Characters)
             c.SelectOption(slot, index);
 
-        Animation = new AnimationTester(Characters.Select(c => c.ActiveAnimator)) { Loop = loop };
-        Animation.SetSpeed(speed);
-        Animation.SetRootMotion(rootMotion);
-        if (clip != null)
-        {
-            Animation.Play(clip);
-            Animation.Seek(time);
-            Animation.SetPlaying(playing);
-        }
         // 새로 켜진 옷의 머티리얼에도 스타일·스위치를 다시 건다
         RefreshCharacters();
     }

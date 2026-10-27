@@ -67,10 +67,13 @@ public class ShaderLabUI : MonoBehaviour
 
     // 상태가 바뀔 때 다시 칠할 것들
     readonly List<Action> refreshers = new();
-    // 매 프레임 갱신 (애니메이션 시간)
+    // 매 프레임 갱신 (와이프 위치)
     Action tick;
 
     CompareView Compare => lab.compareView;
+
+    // 강의 모드 말풍선도 같은 한글 글꼴을 쓴다
+    public FontAsset KoreanFont => koreanFont;
 
     void OnEnable()
     {
@@ -111,7 +114,6 @@ public class ShaderLabUI : MonoBehaviour
         tabs.Add(("환경", BuildEnvironmentTab));
         tabs.Add(("조명", BuildLightingTab));
         tabs.Add(("후처리", BuildPostTab));
-        tabs.Add(("애니메이션", BuildAnimationTab));
         tabs.Add(("커스텀", BuildCustomizeTab));
         tabBar.Clear();
         tabButtons.Clear();
@@ -179,6 +181,17 @@ public class ShaderLabUI : MonoBehaviour
         for (int i = 0; i < tabButtons.Count; i++)
             tabButtons[i].EnableInClassList("tab-button--selected", i == index);
         RebuildContent();
+    }
+
+    // 강의 모드가 용어에 맞춰 패널을 펼치고 탭을 고른다 (탭 이름: 비교, 쉐이더, 맵·보기 ...). 없는 이름이면 첫 탭
+    // 탭을 새로 그리므로 비교 방식처럼 코드에서 바꾼 상태도 버튼에 바로 반영된다
+    public void ShowTab(string tabName)
+    {
+        SetPanelVisible(true);
+        int index = tabs.FindIndex(t => t.name == tabName);
+        if (index < 0 && !string.IsNullOrEmpty(tabName))
+            Debug.LogWarning($"[ShaderLabUI] '{tabName}' 탭이 없습니다.");
+        SelectTab(Mathf.Max(0, index));
     }
 
     void RebuildContent()
@@ -468,73 +481,13 @@ public class ShaderLabUI : MonoBehaviour
         _ => c.GetType().Name,
     };
 
-    void BuildAnimationTab(VisualElement c)
-    {
-        var clips = lab.Clips;
-        Section(c, "클립");
-        if (clips.Count == 0)
-        {
-            Help(c, "이 캐릭터에는 아직 애니메이션 클립이 없다. 캐릭터의 LabCharacter > Clips에 클립을 넣으면 여기에 나온다");
-            return;
-        }
-        Help(c, "원본과 새 쉐이더 캐릭터가 같은 동작을 같이 재생한다. 움직이는 동안 명암·아웃라인이 어떻게 변하는지 본다");
-        var names = new List<string>();
-        foreach (var clip in clips)
-            names.Add(clip != null ? clip.name : "(비어 있음)");
-        var drop = new DropdownField("클립", names, -1);
-        drop.RegisterValueChangedCallback(_ => { if (drop.index >= 0) lab.PlayClip(clips[drop.index]); });
-        c.Add(drop);
-        refreshers.Add(() =>
-        {
-            int i = -1;
-            for (int k = 0; k < clips.Count; k++)
-                if (clips[k] == lab.Animation.Clip) i = k;
-            drop.SetValueWithoutNotify(i >= 0 ? names[i] : "");
-        });
-
-        var row = Row(c);
-        var play = Segment(row, "재생", () => { lab.Animation.SetPlaying(!lab.Animation.Playing); Refresh(); });
-        Segment(row, "◀ 1프레임", () => { lab.Animation.StepFrames(-1); Refresh(); });
-        Segment(row, "1프레임 ▶", () => { lab.Animation.StepFrames(1); Refresh(); });
-        Segment(row, "멈춤 (기본 자세)", lab.StopAnimation);
-        refreshers.Add(() => play.text = lab.Animation.Playing ? "일시정지" : "재생");
-
-        var time = new Slider("시간", 0f, 1f);
-        time.RegisterValueChangedCallback(e =>
-        {
-            lab.Animation.SetPlaying(false);
-            lab.Animation.Seek(e.newValue * lab.Animation.Length);
-            Refresh();
-        });
-        c.Add(time);
-        var timeLabel = new Label();
-        timeLabel.AddToClassList("time-label");
-        c.Add(timeLabel);
-        tick += () =>
-        {
-            float len = lab.Animation.Length;
-            time.SetValueWithoutNotify(len > 0f ? lab.Animation.Time / len : 0f);
-            timeLabel.text = $"{lab.Animation.Time:0.00}s / {len:0.00}s";
-        };
-
-        var speed = new Slider("속도", 0f, 2f);
-        speed.RegisterValueChangedCallback(e => lab.Animation.SetSpeed(e.newValue));
-        c.Add(speed);
-        refreshers.Add(() => speed.SetValueWithoutNotify(lab.Animation.Speed));
-
-        var loop = LabToggle(c, "반복 재생", null, v => lab.Animation.Loop = v);
-        refreshers.Add(() => loop.SetValueWithoutNotify(lab.Animation.Loop));
-        var root = LabToggle(c, "루트 모션 (제자리에서 벗어나 이동)", "끄면 제자리에서 동작만 한다", lab.SetRootMotion);
-        refreshers.Add(() => root.SetValueWithoutNotify(lab.Animation.RootMotion));
-    }
-
     void BuildCustomizeTab(VisualElement c)
     {
         var slots = lab.Slots;
         if (slots.Count == 0)
         {
             Section(c, "커스터마이징");
-            Help(c, "이 캐릭터에는 아직 바꿀 수 있는 옷·무기가 없다. 캐릭터의 LabCharacter > Slots에 후보를 넣으면 여기에 나온다");
+            Help(c, "이 캐릭터에는 아직 바꿀 수 있는 옷이 없다. 캐릭터의 LabCharacter > Slots에 후보를 넣으면 여기에 나온다");
             return;
         }
         foreach (var slot in slots)
@@ -542,11 +495,6 @@ public class ShaderLabUI : MonoBehaviour
             Section(c, slot.name);
             var row = Row(c);
             var s = slot;
-            if (slot.allowNone)
-            {
-                var none = Segment(row, "없음", () => lab.SelectSlotOption(s.name, -1));
-                refreshers.Add(() => none.EnableInClassList("segment--selected", lab.GetSlotSelection(s.name) < 0));
-            }
             for (int i = 0; i < slot.options.Count; i++)
             {
                 int index = i;

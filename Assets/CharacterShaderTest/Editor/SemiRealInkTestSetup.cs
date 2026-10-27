@@ -19,14 +19,12 @@ using Object = UnityEngine.Object;
 //
 // 장면: 쉐이더 랩
 //  - 원본(URP Lit)과 새 쉐이더 캐릭터를 같은 자리에 겹쳐 두고, 레이어로 나눠 카메라 두 대로 A/B 비교
+//  - 캐릭터 = VARCO 옷 3벌(갑옷·한복·마법사 로브). 애니메이션·무기·FinalPlayer는 다음 '캐릭터·애니메이션' 파트에서 다룬다
 //  - 환경 5종(얼어붙은 세상·스튜디오·한낮·노을·달밤), 조명 프리셋, 스타일 프리셋 3종(리얼·세미리얼·스타일라이즈드)
 //  - UI Toolkit 조작 패널
 public static class SemiRealInkTestSetup
 {
     const string Root = "Assets/CharacterShaderTest";
-    const string ModelPath = Root + "/Models/FinalPlayer.fbx";
-    const string SourceMaterialDir = Root + "/Materials/FinalPlayer";
-    const string TargetMaterialDir = Root + "/Materials/FinalPlayer_SemiRealInk";
     const string VarcoModelDir = Root + "/Models/Varco";
     const string VarcoTextureDir = Root + "/Textures/Varco";
     const string VarcoLitDir = Root + "/Materials/Varco";
@@ -40,7 +38,6 @@ public static class SemiRealInkTestSetup
     const string OriginalLayer = "ShaderCompare_Original";
     const string NewLayer = "ShaderCompare_New";
 
-    const string MaskDir = Root + "/Textures/FinalPlayer/Masks";
     // 프리셋 내용을 바꾸면 이 값을 올린다 → 이전 프리셋을 받은 머티리얼도 다음 Build 때 새 프리셋을 받는다
     const string PresetTag = "ShaderTestPreset";
     const string PresetVersion = "4";
@@ -67,16 +64,9 @@ public static class SemiRealInkTestSetup
             Debug.LogError($"쉐이더 '{ShaderLabProperties.ShaderName}'를 찾지 못했습니다. 쉐이더 컴파일 에러를 먼저 확인하세요.");
             return;
         }
-        var model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
-        if (model == null)
-        {
-            Debug.LogError($"모델을 찾지 못했습니다: {ModelPath}");
-            return;
-        }
         if (interactive && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
-        EnsureFolder(TargetMaterialDir);
         EnsureFolder(VarcoLitDir);
         EnsureFolder(VarcoLabDir);
         EnsureFolder(EnvironmentMaterialDir);
@@ -88,25 +78,25 @@ public static class SemiRealInkTestSetup
         int newLayer = EnsureLayer(NewLayer);
         CreateVarcoLitMaterials();
         var remap = new Dictionary<Material, Material>();
-        CreateMaterials(shader, resetAssets, SourceMaterialDir, TargetMaterialDir, remap);
-        CreateMaterials(shader, resetAssets, VarcoLitDir, VarcoLabDir, remap);
+        CreateMaterials(shader, resetAssets, remap);
         var styles = CreateStylePresets(resetAssets);
         var environments = CreateEnvironmentPresets(resetAssets);
-        BuildScene(model, remap, styles, environments, originalLayer, newLayer);
+        BuildScene(remap, styles, environments, originalLayer, newLayer);
     }
 
     // ------------------------------------------------------------------
     // 머티리얼
     // ------------------------------------------------------------------
-    // 원본(URP Lit) 머티리얼마다 새 쉐이더 머티리얼을 하나씩 만들고, 원본 → 새 쉐이더 짝을 remap에 넣는다
-    static void CreateMaterials(Shader shader, bool reset, string sourceDir, string targetDir, Dictionary<Material, Material> remap)
+    // 원본(URP Lit) 머티리얼마다 새 쉐이더 머티리얼을 하나씩 만들고, 원본 → 새 쉐이더 짝을 remap에 넣는다 (장면에 쓰는 VARCO 옷만)
+    static void CreateMaterials(Shader shader, bool reset, Dictionary<Material, Material> remap)
     {
-        bool varco = sourceDir == VarcoLitDir;
-        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { sourceDir }))
+        foreach (var model in VarcoModels)
         {
-            var sourcePath = AssetDatabase.GUIDToAssetPath(guid);
+            var sourcePath = $"{VarcoLitDir}/{model}_Lit.mat";
             var source = AssetDatabase.LoadAssetAtPath<Material>(sourcePath);
-            var targetPath = $"{targetDir}/{Path.GetFileName(sourcePath)}";
+            if (source == null)
+                continue;
+            var targetPath = $"{VarcoLabDir}/{Path.GetFileName(sourcePath)}";
 
             var target = AssetDatabase.LoadAssetAtPath<Material>(targetPath);
             if (target == null)
@@ -122,16 +112,8 @@ public static class SemiRealInkTestSetup
                 target.CopyPropertiesFromMaterial(defaults);
                 Object.DestroyImmediate(defaults);
                 CopyTextures(source, target);
-                if (varco)
-                {
-                    ApplyVarcoPreset(target, source.name);
-                    AssignOrmMap(target, source.name.Replace("_Lit", ""));
-                }
-                else
-                {
-                    ApplyPreset(target, source.name);
-                    AssignMaskMap(target);
-                }
+                ApplyVarcoPreset(target, source.name);
+                AssignOrmMap(target, source.name.Replace("_Lit", ""));
                 target.SetOverrideTag(PresetTag, PresetVersion);
                 EditorUtility.SetDirty(target);
             }
@@ -141,7 +123,7 @@ public static class SemiRealInkTestSetup
     }
 
     // ---- VARCO 3D 모델: 텍스처(베이스·ORM·노멀·이미시브)로 원본(URP Lit) 머티리얼을 만든다 ----
-    static readonly string[] VarcoModels = { "Armor", "Hanbok", "MageRobe", "Sword", "Bow", "Staff" };
+    static readonly string[] VarcoModels = { "Armor", "Hanbok", "MageRobe" };
 
     static void CreateVarcoLitMaterials()
     {
@@ -254,118 +236,8 @@ public static class SemiRealInkTestSetup
         }
     }
 
-    // 굽어 둔 마스크 맵(Textures/FinalPlayer/Masks/<베이스 텍스처 이름>_Mask.png)이 있으면 연결한다
-    // R = 금속(금·황동·금실 자수), G = 유리·보석, B = 은·거울
-    static void AssignMaskMap(Material m)
-    {
-        var baseMap = m.GetTexture("_BaseMap");
-        Texture2D mask = null;
-        if (baseMap != null)
-        {
-            var maskPath = $"{MaskDir}/{baseMap.name}_Mask.png";
-            EnsureMaskImport(maskPath);
-            mask = AssetDatabase.LoadAssetAtPath<Texture2D>(maskPath);
-        }
-        m.SetTexture("_MaskMap", mask);
-        m.SetFloat("_UseMaskMap", mask != null ? 1f : 0f);
-        if (mask != null) m.EnableKeyword("_MASKMAP");
-        else m.DisableKeyword("_MASKMAP");
-    }
-
-    // 마스크는 색이 아니라 데이터 → sRGB 끔 (MaskTextureImporter가 먼저 처리하지만, 그 전에 들어온 경우를 대비)
-    static void EnsureMaskImport(string path)
-    {
-        if (AssetImporter.GetAtPath(path) is TextureImporter importer && importer.sRGBTexture)
-        {
-            importer.sRGBTexture = false;
-            importer.SaveAndReimport();
-        }
-    }
-
+    // 쉐이더의 Material Type 값 (Skin 은 쉐이더에 있지만 VARCO 옷에는 쓰지 않는다)
     enum SurfaceType { Standard = 0, Skin = 1, Cloth = 2 }
-
-    // 텍스처를 보고 정한 부위별 재질 프리셋.
-    // 마스크 맵이 있으면 Metal/Silver/Gem Detect 값은 각 마스크 채널의 세기로 쓰인다
-    static void ApplyPreset(Material m, string sourceName)
-    {
-        // 기본: 가죽·금속·보석이 섞인 장신구류
-        SetSurfaceType(m, SurfaceType.Standard);
-        m.SetFloat("_Cull", (float)CullMode.Off);   // 한 겹짜리 부품이 뚫려 보이지 않게 양면
-        m.SetColor("_BackFaceColor", new Color(0.55f, 0.1f, 0.1f, 0f));
-        m.SetFloat("_Smoothness", 0.4f);
-        m.SetFloat("_SpecularStrength", 1f);
-        m.SetFloat("_MetalDetect", 1f);
-        m.SetFloat("_MetalHue", 0.115f);
-        m.SetFloat("_MetalHueWidth", 0.055f);
-        m.SetFloat("_MetalSmoothness", 0.78f);
-        m.SetFloat("_MetalBoost", 1.2f);
-        m.SetFloat("_SilverDetect", 1f);
-        m.SetFloat("_GemDetect", 1f);
-
-        if (sourceName.Contains("Skin"))
-        {
-            // 몸·얼굴·허벅지: 피부 SSS.
-            // 동해님이 몸 피부에서 잡은 방향(실사 명암·진한 역광·또렷한 외곽선)을 살리되,
-            // 얼굴이 하얗게 날아가던 값(보조광 1.09·역광 3)은 낮췄다
-            SetSurfaceType(m, SurfaceType.Skin);
-            m.SetFloat("_Cull", (float)CullMode.Back);
-            m.SetFloat("_Smoothness", 0.5f);
-            m.SetFloat("_SpecularStrength", 0.7f);
-            m.SetFloat("_MetalDetect", 0f);
-            m.SetFloat("_SilverDetect", 0f);
-            m.SetFloat("_GemDetect", 0f);
-            m.SetFloat("_BumpScale", 1.06f);
-            m.SetFloat("_Realism", 1f);
-            m.SetFloat("_AmbientStrength", 0.8f);
-            m.SetFloat("_FillIntensity", 0.45f);
-            m.SetFloat("_RimIntensity", 1.6f);
-            m.SetFloat("_RimWidth", 0.45f);
-            m.SetFloat("_RimSoftness", 0.4f);
-            m.SetFloat("_OutlineWidth", 1.4f);
-            m.SetFloat("_OutlineOpacity", 0.85f);
-            m.SetFloat("_OutlineBaseBlend", 0f);
-            m.SetFloat("_OutlineNoiseAmount", 0f);
-        }
-        else if (sourceName.Contains("Jeogori") || sourceName.Contains("Chima"))
-        {
-            // 저고리·치마: 천 + 금장 자수(마스크 R). 금실은 "완전한 금속"이 아니라 70%만 금속으로 →
-            // 반사가 없는 각도에서도 검게 죽지 않고, 빛을 받으면 반짝인다. 안감은 빨강
-            SetSurfaceType(m, SurfaceType.Cloth);
-            m.SetFloat("_Smoothness", 0.3f);
-            m.SetFloat("_MetalDetect", 0.7f);
-            m.SetFloat("_MetalSmoothness", 0.75f);
-            m.SetFloat("_MetalBoost", 1.8f);
-            m.SetFloat("_MetalSaturation", 1.5f);   // 금장이 은색으로 보이지 않게 금빛을 살린다
-            m.SetFloat("_SheenIntensity", 0.6f);
-            m.SetFloat("_RimIntensity", 1.2f);
-            if (sourceName.Contains("RedInside"))
-                m.SetColor("_BackFaceColor", new Color(0.55f, 0.1f, 0.1f, 0.85f));
-        }
-        else if (sourceName == "material_0.007")
-        {
-            // 머리카락: 천 타입의 부드러운 윤기 + 하이라이트 조금 더
-            SetSurfaceType(m, SurfaceType.Cloth);
-            m.SetFloat("_Smoothness", 0.55f);
-            m.SetFloat("_ClothSpecular", 0.8f);
-            m.SetFloat("_SheenIntensity", 0.25f);
-        }
-        else if (sourceName == "material_0.004")
-        {
-            // 칼: 금 장식 + 은빛 칼날
-            m.SetFloat("_Smoothness", 0.45f);
-        }
-        else if (sourceName == "material_0.018")
-        {
-            // 고글: 구리 링 + 초록 렌즈 + 금속 테 (마스크 없을 때 판별 색 범위도 구리 쪽으로)
-            m.SetFloat("_MetalHue", 0.09f);
-            m.SetFloat("_MetalHueWidth", 0.075f);
-            m.SetFloat("_SilverDetect", 0.5f);
-        }
-        else if (sourceName.Contains("Boots"))
-        {
-            m.SetFloat("_Smoothness", 0.45f);
-        }
-    }
 
     static void SetSurfaceType(Material m, SurfaceType type)
     {
@@ -638,26 +510,24 @@ public static class SemiRealInkTestSetup
     // ------------------------------------------------------------------
     // 장면
     // ------------------------------------------------------------------
-    static void BuildScene(GameObject model, Dictionary<Material, Material> remap, List<StylePreset> styles,
+    static void BuildScene(Dictionary<Material, Material> remap, List<StylePreset> styles,
         List<EnvironmentPreset> environments, int originalLayer, int newLayer)
     {
         // 새 장면을 열면 쓰이지 않는 에셋이 메모리에서 내려가 C# 변수가 '없는 객체'가 된다 → 경로를 적어 두었다가 다시 읽는다
-        var modelPath = AssetDatabase.GetAssetPath(model);
         var remapPaths = remap.Select(p => (AssetDatabase.GetAssetPath(p.Key), AssetDatabase.GetAssetPath(p.Value))).ToList();
         var stylePaths = styles.Select(AssetDatabase.GetAssetPath).ToList();
         var environmentPaths = environments.Select(AssetDatabase.GetAssetPath).ToList();
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
         remap = remapPaths.ToDictionary(p => AssetDatabase.LoadAssetAtPath<Material>(p.Item1), p => AssetDatabase.LoadAssetAtPath<Material>(p.Item2));
         styles = stylePaths.Select(AssetDatabase.LoadAssetAtPath<StylePreset>).ToList();
         environments = environmentPaths.Select(AssetDatabase.LoadAssetAtPath<EnvironmentPreset>).ToList();
 
         // ---- 캐릭터: 같은 자리에 겹치고 레이어로 나눈다 (A = 메인 카메라, B = 비교 카메라) ----
-        // 캐릭터 하나 = 옷 4벌(VARCO 3벌 + FinalPlayer) + 무기 3개. 커스텀 탭에서 고른 것만 켜진다
-        var characterA = CreateCharacter(model, "Character A", originalLayer, remap, startWithLab: false);
-        var characterB = CreateCharacter(model, "Character B", newLayer, remap, startWithLab: true);
+        // 캐릭터 하나 = VARCO 옷 3벌. 커스텀 탭에서 고른 것만 켜진다
+        var characterA = CreateCharacter("Character A", originalLayer, remap, startWithLab: false);
+        var characterB = CreateCharacter("Character B", newLayer, remap, startWithLab: true);
         int characterMask = (1 << originalLayer) | (1 << newLayer);
         float height = Mathf.Max(characterA.GetBounds().size.y, 0.1f);
 
@@ -754,44 +624,24 @@ public static class SemiRealInkTestSetup
     }
 
     const string OutfitSlot = "옷";
-    const string WeaponSlot = "무기";
 
-    static LabCharacter CreateCharacter(GameObject finalPlayer, string name, int layer, Dictionary<Material, Material> remap, bool startWithLab)
+    static LabCharacter CreateCharacter(string name, int layer, Dictionary<Material, Material> remap, bool startWithLab)
     {
         var root = new GameObject(name);
         var character = root.AddComponent<LabCharacter>();
 
-        // ---- 옷: 모델마다 발이 바닥(y = 0)에 닿게 올린다 ----
+        // ---- 옷: 모델마다 발이 바닥(y = 0)에 닿게 올린다. 애니메이션 없이 기본 자세(T 포즈)로 서 있다 ----
         var outfits = new List<GameObject>
         {
             InstantiateOutfit($"{VarcoModelDir}/Armor.fbx", "갑옷 (VARCO)", root.transform),
             InstantiateOutfit($"{VarcoModelDir}/Hanbok.fbx", "한복 (VARCO)", root.transform),
             InstantiateOutfit($"{VarcoModelDir}/MageRobe.fbx", "마법사 로브 (VARCO)", root.transform),
-            InstantiateOutfit(AssetDatabase.GetAssetPath(finalPlayer), "조선 스팀펑크 (FinalPlayer)", root.transform),
         };
-        foreach (var o in outfits)
-        {
-            var a = o.GetComponent<Animator>();
-            if (a != null)
-                a.applyRootMotion = false;
-        }
         character.slots.Add(new LabCharacter.CustomizationSlot { name = OutfitSlot, options = outfits, defaultIndex = 0 });
 
-        // ---- 무기: 갑옷 캐릭터의 바인드 포즈(T 포즈)에서 오른손에 맞춰 쥐는 자세를 계산해 둔다 ----
-        var armorAnimator = outfits[0].GetComponent<Animator>();
-        var weapons = new List<GameObject>
-        {
-            CreateWeapon("Sword", "검", armorAnimator, root.transform, gripFromTop: 0.17f, bladeForward: true),
-            CreateWeapon("Bow", "활", armorAnimator, root.transform, gripFromTop: 0.5f, bladeForward: false),
-            CreateWeapon("Staff", "지팡이", armorAnimator, root.transform, gripFromTop: 0.42f, bladeForward: false),
-        };
-        character.slots.Add(new LabCharacter.CustomizationSlot { name = WeaponSlot, allowNone = true, options = weapons, defaultIndex = -1 });
-
-        // 처음 모습: 갑옷만 켜고 무기는 없음
+        // 처음 모습: 갑옷만 켠다
         for (int i = 0; i < outfits.Count; i++)
             outfits[i].SetActive(i == 0);
-        foreach (var w in weapons)
-            w.SetActive(false);
 
         SetLayerRecursively(root, layer);
         foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
@@ -802,18 +652,8 @@ public static class SemiRealInkTestSetup
             if (startWithLab)
                 renderer.sharedMaterials = lab;
         }
-
-        // VARCO 애니메이션 (Humanoid): 세 벌 옷이 같은 클립을 쓴다
-        character.clips = AssetDatabase.FindAssets("t:AnimationClip", new[] { VarcoModelDir + "/Animations" })
-            .Select(AssetDatabase.GUIDToAssetPath).Distinct()
-            .SelectMany(p => AssetDatabase.LoadAllAssetsAtPath(p).OfType<AnimationClip>())
-            .Where(c => !c.name.StartsWith("__preview__"))
-            .OrderBy(c => Array.IndexOf(ClipOrder, c.name))
-            .ToList();
         return character;
     }
-
-    static readonly string[] ClipOrder = { "Idle", "Walk", "Run", "Jump", "SwordSlash", "ComboSlash", "ShootBow", "StaffSpin", "PalmMagic", "HitReact" };
 
     static GameObject InstantiateOutfit(string path, string label, Transform parent)
     {
@@ -827,43 +667,6 @@ public static class SemiRealInkTestSetup
                 r.sharedMaterial = lit;
         var bounds = MeasureBounds(go);
         go.transform.position += new Vector3(0f, -bounds.min.y, 0f);
-        return go;
-    }
-
-    // 무기를 오른손에 쥐게 놓고, 손 뼈 기준 자세를 HandGrip에 적어 둔다
-    static GameObject CreateWeapon(string file, string label, Animator animator, Transform parent, float gripFromTop, bool bladeForward)
-    {
-        var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>($"{VarcoModelDir}/{file}.fbx"), parent);
-        go.name = label;
-        var lit = AssetDatabase.LoadAssetAtPath<Material>($"{VarcoLitDir}/{file}_Lit.mat");
-        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
-            r.sharedMaterial = lit;
-
-        var grip = go.AddComponent<HandGrip>();
-        var hand = animator != null && animator.isHuman ? animator.GetBoneTransform(grip.bone) : null;
-        if (hand == null)
-        {
-            Debug.LogWarning($"'{label}': 손 뼈를 찾지 못해 쥐는 자세를 계산하지 못했습니다.");
-            return go;
-        }
-
-        // 손잡이 위치 = 세워 둔 무기의 위에서 gripFromTop 비율 아래
-        go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-        var b = MeasureBounds(go);
-        var gripPoint = new Vector3(b.center.x, b.max.y - b.size.y * gripFromTop, b.center.z);
-        // 손바닥 = 손목 뼈에서 손가락 쪽으로 조금
-        var forearm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
-        var along = forearm != null ? (hand.position - forearm.position).normalized : Vector3.zero;
-        var palm = hand.position + along * 0.07f;
-        // 검은 칼끝(아래쪽)이 캐릭터 앞(+Z)을 보게, 활·지팡이는 세운 채로 쥔다
-        var rotation = bladeForward ? Quaternion.FromToRotation(Vector3.down, Vector3.forward) : Quaternion.identity;
-        go.transform.SetPositionAndRotation(palm - rotation * gripPoint, rotation);
-
-        go.transform.SetParent(hand, true);
-        grip.localPosition = go.transform.localPosition;
-        grip.localRotation = go.transform.localRotation;
-        grip.localScale = go.transform.localScale;
-        go.transform.SetParent(parent, true);
         return go;
     }
 
@@ -883,8 +686,8 @@ public static class SemiRealInkTestSetup
         new() { displayName = "환경 기본", description = "환경 프리셋에 정해 둔 햇빛 그대로", useEnvironmentSun = true },
         new() { displayName = "정면광", description = "카메라 쪽에서 비추는 빛. 그림자가 거의 없어 평평하게 보인다", useEnvironmentSun = false, sunAngles = new Vector2(25f, 180f) },
         new() { displayName = "45° 키 라이트", description = "인물 사진의 기본 각도. 얼굴 한쪽에 삼각형 빛이 생긴다", useEnvironmentSun = false, sunAngles = new Vector2(40f, 135f) },
-        new() { displayName = "측면광", description = "옆에서 비춰 명암 경계(2단 명암·SSS)가 가장 잘 보인다", useEnvironmentSun = false, sunAngles = new Vector2(10f, 90f) },
-        new() { displayName = "역광", description = "뒤에서 비춰 윤곽만 밝다. 림 라이트·피부 투과광 확인용", useEnvironmentSun = false, sunAngles = new Vector2(20f, 0f), intensityScale = 1.2f },
+        new() { displayName = "측면광", description = "옆에서 비춰 명암 경계(2단 명암)가 가장 잘 보인다", useEnvironmentSun = false, sunAngles = new Vector2(10f, 90f) },
+        new() { displayName = "역광", description = "뒤에서 비춰 윤곽만 밝다. 림 라이트 확인용", useEnvironmentSun = false, sunAngles = new Vector2(20f, 0f), intensityScale = 1.2f },
         new() { displayName = "탑라이트", description = "머리 위에서 내리꽂는 빛. 눈두덩·턱 밑 그늘 확인", useEnvironmentSun = false, sunAngles = new Vector2(85f, 180f) },
         new() { displayName = "3점 조명 + 포인트", description = "환경 햇빛 + 따뜻한 포인트(횃불) + 차가운 역광 포인트. 추가 라이트 확인용", useEnvironmentSun = true, accentLights = true },
     };

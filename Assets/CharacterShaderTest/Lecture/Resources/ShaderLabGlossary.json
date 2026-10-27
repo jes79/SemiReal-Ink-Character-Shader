@@ -1,0 +1,742 @@
+{
+ "version": 1,
+ "id": "shaderlab",
+ "title": "쉐이더 랩",
+ "repo": {
+  "project": "SemiReal-Ink-Character-Shader",
+  "branch": "feature/shader-lab",
+  "url": "https://github.com/jes79/SemiReal-Ink-Character-Shader"
+ },
+ "targetWords": [
+  "캐릭터",
+  "얼굴",
+  "갑옷",
+  "한복",
+  "로브",
+  "치마",
+  "저고리",
+  "머티리얼",
+  "프리셋",
+  "텍스처",
+  "그늘",
+  "Global Volume",
+  "환경",
+  "화면"
+ ],
+ "presenters": {
+  "art": {
+   "accent": "#f082aa",
+   "demoLine": "눈으로 봐야 알아요! 켜고 끄면서 차이를 보세요.",
+   "nextLine": "다음은 어떤 그림이 나올까요?",
+   "role": "아트"
+  },
+  "dev": {
+   "accent": "#9682e6",
+   "demoLine": "직접 해 볼게요! 오른쪽 위 조작법대로 눌러 보세요.",
+   "nextLine": "좋아요, 다음 용어 갑니다!",
+   "role": "프로그래머"
+  },
+  "director": {
+   "accent": "#fabe50",
+   "demoLine": "",
+   "nextLine": "",
+   "role": "디렉터"
+  },
+  "plan": {
+   "accent": "#78c88c",
+   "demoLine": "규칙대로 돌아가는지 직접 확인해 보세요.",
+   "nextLine": "다음 시스템, 기획서 넘겨 볼게요.",
+   "role": "기획"
+  },
+  "sound": {
+   "accent": "#5abef0",
+   "demoLine": "스피커 켜고 직접 들어 보세요!",
+   "nextLine": "다음 소리, 들어 볼까요?",
+   "role": "사운드"
+  }
+ },
+ "categories": [
+  {
+   "n": 1,
+   "name": "비교·디버그 보기",
+   "folder": "01_Compare",
+   "presenter": "art",
+   "intro": "이 분야에서 회사 아트 팀은 바꾸기 전과 후를 한 화면에 나란히 놓고, 맵이나 빛을 하나씩 따로 떼어 보며 무엇이 달라졌는지 확인합니다. 눈으로 확인하는 습관이 모든 작업의 시작이에요.",
+   "numberExample": "와이프 50%",
+   "targetExample": "내 캐릭터 머티리얼",
+   "count": 2,
+   "wiki": ""
+  },
+  {
+   "n": 2,
+   "name": "텍스처 맵·PBR",
+   "folder": "02_TextureMaps",
+   "presenter": "art",
+   "intro": "이 분야에서 회사 아트 팀은 색·울퉁불퉁함·금속 느낌·거칠기·그늘·빛나는 곳을 각각 다른 그림(텍스처 맵)에 나눠 담고, 셰이더가 이것을 합쳐 진짜 같은 표면을 만들게 합니다.",
+   "numberExample": "노멀 강도 1, AO 0.8",
+   "targetExample": "갑옷 캐릭터",
+   "count": 6,
+   "wiki": ""
+  },
+  {
+   "n": 3,
+   "name": "조명 모델",
+   "folder": "03_Lighting",
+   "presenter": "art",
+   "intro": "이 분야에서 회사 아트 팀은 해(키 라이트)·보조광(필)·역광(림)이 캐릭터에 어떻게 닿는지 정하고, 명암을 부드럽게 할지 두 단계로 딱 나눌지로 그림체를 만듭니다.",
+   "numberExample": "림 세기 0.6, 각도 40°",
+   "targetExample": "주인공 캐릭터",
+   "count": 5,
+   "wiki": ""
+  },
+  {
+   "n": 4,
+   "name": "재질 표현",
+   "folder": "04_Materials",
+   "presenter": "art",
+   "intro": "이 분야에서 회사 아트 팀은 금속과 천이 각각 빛을 다르게 받도록 재질을 나눕니다. 금속은 반사로, 천은 가장자리 광택으로 진짜처럼 보이게 해요.",
+   "numberExample": "Sheen 0.35, 반사 1.3",
+   "targetExample": "한복 캐릭터 저고리",
+   "count": 2,
+   "wiki": ""
+  },
+  {
+   "n": 5,
+   "name": "먹 아웃라인·스타일",
+   "folder": "05_Style",
+   "presenter": "art",
+   "intro": "이 분야에서 회사 아트 팀은 외곽선 굵기와 명암 단계 같은 값을 묶어 '리얼 · 세미리얼 · 스타일라이즈드' 같은 화풍 프리셋으로 만들어, 버튼 하나로 게임 전체의 그림체를 바꿉니다.",
+   "numberExample": "외곽선 2.6픽셀",
+   "targetExample": "내 캐릭터 전체",
+   "count": 2,
+   "wiki": ""
+  },
+  {
+   "n": 6,
+   "name": "환경·후처리",
+   "folder": "06_Environment",
+   "presenter": "dev",
+   "intro": "이 분야에서 회사 프로그래머는 하늘·주변광·반사·안개와 화면 전체 색감(후처리)을 환경마다 묶어 두고, 장면이 바뀔 때 한 번에 갈아 끼우도록 만듭니다.",
+   "numberExample": "노출 +0.5, ACES",
+   "targetExample": "노을 장면",
+   "count": 2,
+   "wiki": ""
+  }
+ ],
+ "entries": [
+  {
+   "id": "0101",
+   "sl": "SL01",
+   "cat": 1,
+   "sub": "비교·디버그",
+   "term": "A/B 비교 (와이프 · 나란히)",
+   "easy": "두 화면을 겹쳐 놓고 경계선을 밀며 비교하기",
+   "concept": "같은 자리에 캐릭터 두 개(A, B)를 겹쳐 두고, 레이어(그리는 묶음)를 나눠 카메라 두 대로 따로 그린다. 와이프는 화면을 세로선 하나로 나눠 왼쪽은 A, 오른쪽은 B를 보여 준다. A와 B에는 원본 (URP Lit)이나 스타일 프리셋을 골라 넣는다.",
+   "labView": "비교 탭 → 비교 방식에서 와이프 (1)을 누르고, A (왼쪽)·B (오른쪽) 드롭다운으로 비교할 것을 고른다.",
+   "controls": "와이프 (1) / 나란히 (2) / A만 (3) / B만 (4) : 비교 방식 바꾸기 (키보드 1~4도 같음)\n가운데 선 드래그 / 와이프 위치 슬라이더 : 경계선 옮기기\nA ↔ B 빠르게 전환 (Tab) : A와 B를 빠르게 번갈아 보기\nA (왼쪽) / B (오른쪽) 드롭다운 : 원본 (URP Lit) · 리얼 · 세미리얼 · 스타일라이즈드 중 고르기\n자동 회전 (Space) / 처음 시점 (F) : 캐릭터 자동으로 돌리기 / 처음 카메라로 돌아가기",
+   "tryThis": [
+    "비교 탭에서 A (왼쪽) = 원본 (URP Lit), B (오른쪽) = 세미리얼로 두고 와이프 (1)을 누른다.",
+    "가운데 선을 좌우로 끌며 얼굴·갑옷에서 다른 곳을 세 군데 찾는다.",
+    "키보드 2 → 3 → 4를 차례로 누르고, Tab을 여러 번 눌러 본다."
+   ],
+   "check": "화면 위 이름표 A  원본 (URP Lit) / B  세미리얼이 경계선을 따라 움직입니다. 나란히 (2)에서는 후처리가 화면 반쪽마다 따로 걸려서, 와이프보다 가장자리 어두움(비네트)이 다르게 보입니다.",
+   "vague": "두 개 비교하는 화면 만들어줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 같은 캐릭터 두 개를 레이어로 나눠 카메라 두 대로 그리고, 세로 와이프 선 하나로 왼쪽은 URP Lit 머티리얼, 오른쪽은 커스텀 셰이더 머티리얼을 보여 주는 A/B 비교 화면을 만들고 싶어. 와이프 위치는 0~1 슬라이더와 마우스 드래그로 옮기고, 후처리(비네트·필름 그레인)는 양쪽에 똑같이 걸려야 해. 구조와 C# 코드를 알려줘.",
+   "script": "CompareView.cs, ShaderLabUI.cs, ShaderLabController.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "비교 탭 → 비교 방식에서 와이프 (1)을 누르고, A (왼쪽)·B (오른쪽) 드롭다운으로 비교할 것을 고른다.",
+   "lab": {
+    "tab": "비교",
+    "compare": "Wipe",
+    "a": "원본 (URP Lit)",
+    "b": "세미리얼"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381ebaa83e1188b1450fe"
+  },
+  {
+   "id": "0102",
+   "sl": "SL02",
+   "cat": 1,
+   "sub": "비교·디버그",
+   "term": "디버그 보기 (Debug View)",
+   "easy": "완성 화면을 재료 한 장씩 나눠 보기",
+   "concept": "화면 색은 베이스 색·노멀·메탈릭·러프니스·AO·빛이 합쳐진 결과다. 디버그 보기는 그중 하나만 골라 화면에 칠한다. 전역 값(장면 전체가 같이 쓰는 값) 하나로 새 쉐이더 머티리얼이 모두 같은 보기로 바뀐다.",
+   "labView": "맵·보기 탭 → 디버그 보기에서 버튼 하나를 누른다. 비교 탭에서 B만 (4)로 두면 크게 보인다.",
+   "controls": "보통 화면 : 원래 화면으로 돌아가기\n베이스 컬러만 / 노멀 (방향 색) : 빛 없이 색만 / 표면 방향을 색으로\n메탈릭 (흰색 = 금속) / 러프니스 (흰색 = 거침) / AO (검을수록 가려짐) : 데이터 맵 값을 흑백으로 보기\n이미시브 : 스스로 빛나는 부분만 보기\n빛만 (회색 점토) / 반사광만 : 색을 빼고 명암만 / 반사만 보기\n재질 판별 (노랑 금·흰 은·초록 보석) 또는 M : 재질 판별 보기 켜기·끄기",
+   "tryThis": [
+    "비교 탭에서 B만 (4)를 누른다.",
+    "맵·보기 탭 디버그 보기에서 베이스 컬러만 → 노멀 (방향 색) → 메탈릭 (흰색 = 금속) → 러프니스 (흰색 = 거침) → AO (검을수록 가려짐)를 차례로 누른다.",
+    "빛만 (회색 점토)를 눌러 색 없이 명암만 본다.",
+    "비교 탭에서 와이프 (1)로 바꾸고, 끝나면 보통 화면을 누른다."
+   ],
+   "check": "화면 한 장이 재료 여러 장으로 만들어진다는 것을 보세요. 와이프에서 A가 원본 (URP Lit)이면 A는 그대로입니다. 디버그 보기는 새 쉐이더 쪽에만 걸립니다.",
+   "vague": "텍스처만 보이게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 커스텀 셰이더 ShaderTest/SemiRealInk에서, 전역 float 값 하나로 화면을 디버그 보기로 바꾸는 원리를 알고 싶어. 값이 0이면 보통 화면, 1이면 베이스 컬러만, 2면 노멀을 방향 색으로 칠할 때 C#의 Shader.SetGlobalFloat와 셰이더 쪽 코드가 어떻게 이어지는지 설명해 줘.",
+   "script": "SemiRealInk.shader, ShaderLabController.cs, ShaderLabUI.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 → 디버그 보기에서 버튼 하나를 누른다. 비교 탭에서 B만 (4)로 두면 크게 보인다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly",
+    "debug": "Normal"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381749ad3f0bb77c8efc3"
+  },
+  {
+   "id": "0201",
+   "sl": "SL03",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "Base Map (베이스 컬러 · 디퓨즈)",
+   "easy": "물체 고유의 색을 칠해 둔 그림",
+   "concept": "베이스 맵은 빛과 상관없이 표면이 원래 가진 색을 담은 텍스처다. 셰이더는 이 색에 Base Color를 곱한 다음 빛을 계산한다. 끄면 텍스처 색이 빠지고 Base Color만 남아, Base Color가 흰색이면 흰 석고처럼 보인다.",
+   "labView": "맵·보기 탭 → 텍스처 맵 켜고 끄기에서 베이스 컬러 (디퓨즈) 체크를 끄고 켠다.",
+   "controls": "베이스 컬러 (디퓨즈) 체크 : 베이스 맵 끄기·켜기\n디버그 보기 베이스 컬러만 : 명암 없이 색만 보기\n커스텀 탭 옷 : 갑옷 (VARCO) · 한복 (VARCO) · 마법사 로브 (VARCO)로 바꿔 보기",
+   "tryThis": [
+    "비교 탭에서 B만 (4)를 누른다.",
+    "베이스 컬러 (디퓨즈)를 끈다. 갑옷이 흰 석고처럼 된다.",
+    "다시 켜고 디버그 보기 베이스 컬러만을 누른다. 명암이 없는 평평한 색이 보인다.",
+    "커스텀 탭에서 옷을 한복 (VARCO)으로 바꿔 같은 것을 해 본다."
+   ],
+   "check": "베이스 맵을 꺼도 노멀 맵의 주름과 명암은 그대로 남습니다. 색과 모양(빛 받는 방향)은 따로 들어온다는 뜻입니다.",
+   "vague": "캐릭터 색 좀 바꿔줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 ShaderTest/SemiRealInk 셰이더를 쓰는 한복 머티리얼의 Base Map은 그대로 두고, Base Color만 RGB (1, 0.85, 0.85)로 바꿔 전체를 살짝 붉게 물들이는 법을 알려줘. 다른 옷 머티리얼은 바뀌면 안 돼.",
+   "script": "SemiRealInk.shader, LabCharacter.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 → 텍스처 맵 켜고 끄기에서 베이스 컬러 (디퓨즈) 체크를 끄고 켠다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly"
+   },
+   "notion": "https://app.notion.com/406e1e08ef43810faa9ec40f75b71061"
+  },
+  {
+   "id": "0202",
+   "sl": "SL04",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "Normal Map (노멀 맵)",
+   "easy": "평평한 면에 잔주름을 그려 넣는 방향 그림",
+   "concept": "노멀은 표면이 바라보는 방향 화살표다. 노멀 맵은 픽셀마다 이 방향을 살짝 비틀어서, 메쉬(모양 데이터)를 늘리지 않고도 홈·주름에 명암이 생기게 한다. 끄면 표면이 평평해진다.",
+   "labView": "맵·보기 탭 → 노멀 맵 체크를 끄고 켜고, 디버그 보기 노멀 (방향 색)으로 방향을 본다.",
+   "controls": "노멀 맵 체크 : 노멀 맵 끄기·켜기\n디버그 보기 노멀 (방향 색) : 표면 방향을 색으로 보기\n조명 탭 측면광 : 옆빛으로 요철을 또렷하게\n휠 : 갑옷 판 확대",
+   "tryThis": [
+    "조명 탭에서 측면광을 누른다.",
+    "맵·보기 탭에서 노멀 맵을 끄고 켠다. 휠로 갑옷 판을 확대해서 본다.",
+    "디버그 보기 빛만 (회색 점토)로 바꾸고 다시 노멀 맵을 끄고 켠다.",
+    "디버그 보기 노멀 (방향 색)을 눌러 본 뒤 보통 화면으로 돌린다."
+   ],
+   "check": "노멀 맵을 끄면 갑옷 판의 홈·주름이 평평해지지만 실루엣(겉 테두리)은 그대로입니다. 노멀 맵은 모양이 아니라 빛 받는 방향만 바꿉니다.",
+   "vague": "좀 더 울퉁불퉁하게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 ShaderTest/SemiRealInk 셰이더를 쓰는 갑옷 머티리얼의 노멀 맵 효과를 절반으로 약하게 하고 싶어. Normal Strength를 1에서 0.5로 바꾸는 위치와, Armor_Normal.png의 Texture Type이 Normal map으로 되어 있는지 확인하는 법을 알려줘.",
+   "script": "SemiRealInk.shader, VarcoAssetImporter.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 → 노멀 맵 체크를 끄고 켜고, 디버그 보기 노멀 (방향 색)으로 방향을 본다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly",
+    "lighting": "측면광"
+   },
+   "notion": "https://app.notion.com/406e1e08ef438166b655e0fd4c1030fd"
+  },
+  {
+   "id": "0203",
+   "sl": "SL05",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "Metallic / Roughness (메탈릭 / 러프니스)",
+   "easy": "금속이냐 아니냐 / 표면이 얼마나 거치냐",
+   "concept": "메탈릭은 표면의 금속 성질을 0~1로 나타내며, 1에 가까울수록 금속이다. 러프니스는 거칠수록 1이라 빛이 넓게 퍼지고, 매끈할수록 0이라 반사가 또렷하다. Unity는 러프니스를 뒤집은 스무스니스(1 − 러프니스)를 주로 쓴다.",
+   "labView": "맵·보기 탭 → 메탈릭 맵, 러프니스 맵 체크를 하나씩 끄고 켜고, 디버그 보기로 흑백 값을 본다.",
+   "controls": "메탈릭 맵 체크 : 끄면 Metallic 슬라이더 값 하나만 사용\n러프니스 맵 체크 : 끄면 Smoothness 슬라이더 값 하나만 사용\n디버그 보기 메탈릭 (흰색 = 금속) : 금속인 곳만 하얗게\n디버그 보기 러프니스 (흰색 = 거침) : 거친 곳일수록 하얗게\n환경 탭 맑은 한낮 : 반사가 잘 보이는 환경",
+   "tryThis": [
+    "환경 탭에서 맑은 한낮을 고른다.",
+    "메탈릭 맵을 끈다. 금속 판이 반사를 잃고 플라스틱처럼 된다. 다시 켠다.",
+    "러프니스 맵을 끈다. 반짝임이 판 전체에 고르게 퍼진다. 다시 켠다.",
+    "커스텀 탭 옷을 한복 (VARCO)으로 바꾸고 디버그 보기 메탈릭을 다시 눌러 갑옷과 무엇이 다른지 본다. 끝나면 갑옷 (VARCO)으로 돌린다."
+   ],
+   "check": "메탈릭 맵을 끄면 금속 판이 Metallic 슬라이더 값 하나로 칠해져 반사를 잃고, 러프니스 맵을 끄면 판 전체가 같은 거칠기가 됩니다. 옷마다 텍스처가 따로라서 메탈릭 보기 모양도 옷마다 다릅니다.",
+   "vague": "금속 느낌 나게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 ShaderTest/SemiRealInk 셰이더를 쓰는 갑옷 머티리얼의 Roughness Map 칸에 Unity식 MetallicSmoothness 텍스처(Armor_MetallicSmoothness.png)를 넣으려고 해. 스무스니스가 A 채널에 있을 때 Roughness Channel을 무엇으로 고르고 Map Stores Smoothness를 켜야 반짝임이 뒤집히지 않는지, Metallic Channel은 R로 두면 되는지 알려줘.",
+   "script": "SemiRealInk.shader, ShaderLabController.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 → 메탈릭 맵, 러프니스 맵 체크를 하나씩 끄고 켜고, 디버그 보기로 흑백 값을 본다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly",
+    "environment": "맑은 한낮"
+   },
+   "notion": "https://app.notion.com/406e1e08ef43818c9aaade5ada430de5"
+  },
+  {
+   "id": "0204",
+   "sl": "SL06",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "AO (앰비언트 오클루전)",
+   "easy": "틈새에 생기는 그늘을 미리 그려 둔 그림",
+   "concept": "앰비언트 오클루전은 틈·접힌 곳처럼 주변 빛이 덜 드는 정도다. 1이면 빛을 다 받고 0이면 다 가려진다. 이 셰이더에서 AO는 URP Lit과 같이 환경광과 환경 반사만 가리고, 햇빛(키 라이트)은 가리지 않는다.",
+   "labView": "맵·보기 탭 → 앰비언트 오클루전 (AO) 체크를 끄고 켜고, 디버그 보기 AO (검을수록 가려짐)로 본다.",
+   "controls": "앰비언트 오클루전 (AO) 체크 : AO 맵 끄기·켜기\n디버그 보기 AO (검을수록 가려짐) : 가려진 곳을 검게 보기\n조명 탭 역광 : 햇빛을 뒤로 돌려 앞쪽을 환경광만 받게 하기",
+   "tryThis": [
+    "디버그 보기 AO (검을수록 가려짐)를 눌러 어두운 곳을 찾는다.",
+    "보통 화면으로 돌리고 앰비언트 오클루전 (AO)를 끄고 켠다.",
+    "조명 탭에서 역광을 누르고 다시 끄고 켠다.",
+    "끝나면 조명 탭 환경 기본을 누른다."
+   ],
+   "check": "겹친 판 사이·겨드랑이의 어두운 틈이 옅어집니다. 햇빛이 바로 닿는 밝은 면은 거의 안 바뀝니다. AO는 환경광과 환경 반사만 가리기 때문입니다.",
+   "vague": "그림자 더 진하게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 ShaderTest/SemiRealInk 셰이더를 쓰는 갑옷 머티리얼의 틈새 그늘(AO)이 약해 보여. ORM 텍스처의 R 채널을 Ambient Occlusion Map으로 쓰고 있는데, Occlusion Strength가 1인지와 Occlusion Channel이 R인지 확인하는 법, 그리고 AO가 햇빛 그림자는 건드리지 않는 이유를 알려줘.",
+   "script": "SemiRealInk.shader",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 → 앰비언트 오클루전 (AO) 체크를 끄고 켜고, 디버그 보기 AO (검을수록 가려짐)로 본다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly"
+   },
+   "notion": "https://app.notion.com/406e1e08ef43818cb190ee154602634d"
+  },
+  {
+   "id": "0205",
+   "sl": "SL07",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "Emission (이미시브)",
+   "easy": "빛을 받지 않아도 스스로 빛나는 부분",
+   "concept": "이미시브 맵은 스스로 빛나는 곳과 그 색을 담은 텍스처다. 조명과 상관없이 더해져서 어두운 곳에서도 보인다. Emission Color는 HDR 색(1보다 밝을 수 있는 색)이라, 후처리 블룸과 만나면 빛이 번진다.",
+   "labView": "커스텀 탭에서 옷을 마법사 로브 (VARCO)로 고른 뒤, 맵·보기 탭 → 이미시브 맵 체크를 끄고 켠다.",
+   "controls": "커스텀 탭 옷 마법사 로브 (VARCO) : 룬 문자가 있는 옷으로\n이미시브 맵 체크 : 스스로 빛나는 부분 끄기·켜기\n디버그 보기 이미시브 : 빛나는 부분만 보기\n환경 탭 달밤 : 어두운 곳에서 빛 확인",
+   "tryThis": [
+    "갑옷 (VARCO)을 입은 채 이미시브 맵을 끄고 켠다. 변화가 없다.",
+    "커스텀 탭 옷 마법사 로브 (VARCO)를 고른다.",
+    "디버그 보기 이미시브를 누르고, 이미시브 맵을 끄고 켠다.",
+    "보통 화면으로 돌리고 환경 탭 달밤을 고른다."
+   ],
+   "check": "갑옷에는 이미시브 맵이 없어서 체크를 바꿔도 그대로입니다. 로브의 룬 문자만 빛나고, 달밤에서 더 또렷합니다.",
+   "vague": "빛나게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 ShaderTest/SemiRealInk 셰이더를 쓰는 마법사 로브 머티리얼의 룬 문자 빛을 두 배 밝게 하고 싶어. Emission Map은 그대로 두고 HDR Emission Color의 Intensity를 +1 올리는 법, 그리고 Global Volume의 블룸으로 빛이 번지게 하려면 어떤 값을 봐야 하는지 알려줘.",
+   "script": "SemiRealInk.shader, LabCharacter.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "커스텀 탭에서 옷을 마법사 로브 (VARCO)로 고른 뒤, 맵·보기 탭 → 이미시브 맵 체크를 끄고 켠다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly",
+    "wear": [
+     "마법사 로브 (VARCO)"
+    ],
+    "environment": "달밤"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381df80efeb624284aec8"
+  },
+  {
+   "id": "0206",
+   "sl": "SL08",
+   "cat": 2,
+   "sub": "텍스처 맵",
+   "term": "ORM 채널 패킹 · 데이터 텍스처 (sRGB 끔)",
+   "easy": "흑백 맵 세 장을 한 장의 R·G·B에 나눠 담기",
+   "concept": "ORM은 R에 AO, G에 러프니스, B에 메탈릭을 담은 텍스처 한 장이다. 이 셰이더는 같은 ORM을 세 칸에 넣고 채널(R·G·B·A 중 한 칸)만 다르게 골라 읽는다. ORM처럼 숫자를 담은 데이터 텍스처는 sRGB(사람 눈에 맞춘 색 저장 방식)를 꺼서 값이 바뀌지 않게 가져와야 한다.",
+   "labView": "맵·보기 탭 디버그 보기에서 메탈릭 → 러프니스 → AO를 차례로 눌러 ORM 한 장의 B·G·R을 본다. 플레이를 멈추고 Project 창에서 Armor_ORM.png의 sRGB 체크를 확인한다.",
+   "controls": "디버그 보기 메탈릭 (흰색 = 금속) : ORM의 B 채널\n디버그 보기 러프니스 (흰색 = 거침) : ORM의 G 채널\n디버그 보기 AO (검을수록 가려짐) : ORM의 R 채널\n(플레이 멈춘 뒤) Project 창 Textures/Varco/Armor_ORM.png : 인스펙터 sRGB (Color Texture)가 꺼져 있는지 보기",
+   "tryThis": [
+    "비교 탭 B만 (4), 옷은 갑옷 (VARCO).",
+    "디버그 보기 메탈릭 → 러프니스 → AO를 차례로 누르며 세 그림이 서로 다른 것을 본다.",
+    "플레이를 멈추고 Armor_BaseColor.png와 Armor_ORM.png를 번갈아 선택해 sRGB (Color Texture) 체크를 비교한다."
+   ],
+   "check": "세 보기는 모두 Armor_ORM 한 장에서 나옵니다. Armor_BaseColor.png는 sRGB가 켜져 있고 Armor_ORM.png는 꺼져 있습니다. 데이터 텍스처에 sRGB를 켜면 0.5가 약 0.21로 읽혀서, 러프니스는 더 반짝이고 AO 틈은 더 검어집니다.",
+   "vague": "텍스처 한 장으로 합쳐줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 glTF식 ORM 텍스처(R AO, G 러프니스, B 메탈릭) 한 장을 ShaderTest/SemiRealInk 셰이더의 Metallic Map · Roughness Map · Ambient Occlusion Map 세 칸에 넣으려고 해. 칸마다 채널을 무엇으로 골라야 하는지, 그리고 이 텍스처의 sRGB (Color Texture)를 꺼야 하는 이유를 알려줘.",
+   "script": "SemiRealInk.shader, VarcoAssetImporter.cs, MaskTextureImporter.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 디버그 보기에서 메탈릭 → 러프니스 → AO를 차례로 눌러 ORM 한 장의 B·G·R을 본다. 플레이를 멈추고 Project 창에서 Armor_ORM.png의 sRGB 체크를 확인한다.",
+   "lab": {
+    "tab": "맵·보기",
+    "compare": "BOnly",
+    "debug": "Metallic"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381249712eff6654ab413"
+  },
+  {
+   "id": "0301",
+   "sl": "SL09",
+   "cat": 3,
+   "sub": "조명",
+   "term": "키 라이트와 람버트 (N·L)",
+   "easy": "빛을 정면으로 받으면 밝고, 비스듬히 받으면 어둡다",
+   "concept": "키 라이트는 장면의 주인공 빛(디렉셔널 라이트 Sun)으로, 그림자를 만든다. 람버트는 밝기 = N·L이라는 가장 기본 명암 규칙이다. N·L은 표면 방향(N)과 빛 방향(L)의 내적으로, 같은 쪽을 볼수록 1, 직각이면 0이다.",
+   "labView": "맵·보기 탭 디버그 보기 빛만 (회색 점토)를 켜고, 조명 탭 → 조명 프리셋 카드를 차례로 누른다.",
+   "controls": "정면광 / 45° 키 라이트 / 측면광 / 역광 / 탑라이트 : 햇빛 방향 바꾸기\n환경 기본 : 환경 프리셋에 정해 둔 햇빛으로\n방향 (도) 슬라이더 : 햇빛을 캐릭터 둘레로 돌리기 (-180~180)\n디버그 보기 빛만 (회색 점토) : 색을 빼고 명암만 보기",
+   "tryThis": [
+    "환경 탭 중립 스튜디오, 맵·보기 탭 디버그 보기 빛만 (회색 점토).",
+    "조명 탭에서 정면광 → 45° 키 라이트 → 측면광 → 역광 → 탑라이트를 차례로 누른다.",
+    "측면광에서 햇빛 돌리기의 방향 (도) 슬라이더를 천천히 끈다.",
+    "끝나면 방향을 0, 조명을 환경 기본으로 돌린다."
+   ],
+   "check": "정면광은 그림자가 거의 없어 평평하고, 측면광은 명암 경계가 몸 한가운데에 생깁니다. 슬라이더를 끌면 명암 경계와 바닥 그림자가 함께 돕니다.",
+   "vague": "조명 좀 멋있게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 캐릭터 얼굴에 인물 사진 같은 45도 키 라이트를 주고 싶어. 디렉셔널 라이트 Sun의 회전을 높이 40도, 수평 135도로 맞추는 법과, 반대쪽 그늘이 너무 검지 않게 하려면 환경광과 필 라이트 중 무엇을 조절해야 하는지 알려줘.",
+   "script": "ShaderLabController.cs, SemiRealInkTestSetup.cs, SemiRealInk.shader",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "맵·보기 탭 디버그 보기 빛만 (회색 점토)를 켜고, 조명 탭 → 조명 프리셋 카드를 차례로 누른다.",
+   "lab": {
+    "tab": "조명",
+    "compare": "BOnly",
+    "environment": "중립 스튜디오",
+    "debug": "LightingOnly"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381138c3efdd7687ef74f"
+  },
+  {
+   "id": "0302",
+   "sl": "SL10",
+   "cat": 3,
+   "sub": "조명",
+   "term": "2단 명암 (셀 셰이딩) · Realism",
+   "easy": "밝음과 어둠을 두 칸으로 딱 나누는 만화식 명암",
+   "concept": "셀 셰이딩은 람버트의 부드러운 명암을 밝음/어둠 두 칸으로 나눠 그림처럼 보이게 하는 방법이다. 이 셰이더는 Realism 슬라이더로 둘을 섞는다(1 = 실사 람버트, 0 = 2단 명암). Shade Edge Softness가 작을수록 경계가 또렷하다.",
+   "labView": "비교 탭에서 A (왼쪽) = 리얼, B (오른쪽) = 스타일라이즈드로 두고 와이프 (1)로 맞대어 본다.",
+   "controls": "A (왼쪽) = 리얼 : Realism 1, 부드러운 실사 명암\nB (오른쪽) = 스타일라이즈드 : Realism 0, 경계 Softness 0.05의 또렷한 2단 명암\n가운데 선 드래그 : 두 명암을 맞대어 비교\n조명 탭 측면광 : 명암 경계가 가장 잘 보이는 빛\n디버그 보기 빛만 (회색 점토) : 색 없이 명암만",
+   "tryThis": [
+    "비교 탭에서 A (왼쪽) = 리얼, B (오른쪽) = 스타일라이즈드, 와이프 (1).",
+    "조명 탭 측면광, 맵·보기 탭 빛만 (회색 점토).",
+    "와이프 선을 끌며 밝음이 줄어드는 모양을 비교한다."
+   ],
+   "check": "A는 밝음이 서서히 줄고, B는 밝음/어둠 두 칸으로 딱 나뉩니다.",
+   "vague": "만화처럼 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더에서 갑옷을 2단 명암(셀 셰이딩)으로 보이게 하고 싶어. Realism 0, Shade Edge Softness 0.05로 덮어쓰는 스타일 프리셋 설정을 알려주고, 명암 경계를 조금 밝은 쪽으로 옮기려면 Shade Edge Offset을 어느 방향으로 얼마나 바꾸는지도 알려줘.",
+   "script": "SemiRealInk.shader, StylePreset.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "비교 탭에서 A (왼쪽) = 리얼, B (오른쪽) = 스타일라이즈드로 두고 와이프 (1)로 맞대어 본다.",
+   "lab": {
+    "tab": "비교",
+    "compare": "Wipe",
+    "a": "리얼",
+    "b": "스타일라이즈드",
+    "lighting": "측면광",
+    "debug": "LightingOnly"
+   },
+   "notion": "https://app.notion.com/406e1e08ef438166ae01f8087ba77d50"
+  },
+  {
+   "id": "0303",
+   "sl": "SL11",
+   "cat": 3,
+   "sub": "조명",
+   "term": "Fill Light (필 라이트 · 보조광)",
+   "easy": "어두운 쪽을 살짝 밝혀 주는 보조 빛",
+   "concept": "필 라이트는 키 라이트가 못 닿은 그늘을 약하게 채우는 빛이다. 이 셰이더는 장면에 라이트를 두지 않고, 카메라 기준 방향(화면 왼쪽 앞)을 정해 셰이더 안에서 계산한다. 그래서 캐릭터를 돌려도 늘 같은 쪽에서 비치고, 금속에는 두 번째 하이라이트도 만든다.",
+   "labView": "쉐이더 탭 → 기능 켜고 끄기 → 보조광 (필 라이트) 체크를 끄고 켠다.",
+   "controls": "보조광 (필 라이트) 체크 : 필 라이트 끄기·켜기\nB만 (4) : 새 쉐이더 쪽만 크게 보기\n왼쪽 드래그 : 캐릭터 돌려 보기\n조명 탭 역광 : 앞쪽을 어둡게 해서 필 라이트 차이 키우기",
+   "tryThis": [
+    "비교 탭 B (오른쪽) = 세미리얼, 키보드 4(B만).",
+    "쉐이더 탭에서 보조광 (필 라이트)를 끄고 켠다.",
+    "켠 상태로 왼쪽 드래그로 캐릭터를 한 바퀴 돌린다.",
+    "쉐이더 탭에서 리얼 카드를 누르고 보조광 (필 라이트)를 다시 켜 본다."
+   ],
+   "check": "끄면 그늘 쪽이 한 단계 어두워집니다. 캐릭터를 돌려도 필 라이트는 늘 화면 왼쪽에서 옵니다. 리얼 프리셋은 필 라이트가 꺼져 있어서 체크를 켜도 생기지 않습니다.",
+   "vague": "어두운 데 좀 밝게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더에서 카메라 기준 필 라이트를 조금 더 세고 따뜻하게 바꾸고 싶어. Fill Intensity를 0.35에서 0.6으로, Fill Color를 연한 주황으로 바꾸고, 방향(Fill Direction)은 화면 왼쪽 앞 그대로 두는 법을 알려줘.",
+   "script": "SemiRealInk.shader, StylePreset.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "쉐이더 탭 → 기능 켜고 끄기 → 보조광 (필 라이트) 체크를 끄고 켠다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "BOnly",
+    "b": "세미리얼"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381ae9d4fe79357ae3a74"
+  },
+  {
+   "id": "0304",
+   "sl": "SL12",
+   "cat": 3,
+   "sub": "조명",
+   "term": "Rim Light (림 라이트 · 역광)",
+   "easy": "몸 윤곽을 따라 생기는 밝은 테두리",
+   "concept": "림 라이트는 뒤에서 와서 몸의 가장자리를 밝히는 빛이다. 캐릭터 실루엣을 배경에서 떼어 보이게 한다. 이 셰이더는 카메라 기준 뒤쪽 방향으로 계산해서, 테두리가 늘 화면 오른쪽 위에 생긴다.",
+   "labView": "쉐이더 탭 → 기능 켜고 끄기 → 역광 (림 라이트) 체크를 끄고 켜고, 조명 탭 역광과 비교한다.",
+   "controls": "역광 (림 라이트) 체크 : 셰이더 림 라이트 끄기·켜기\n쉐이더 탭 스타일라이즈드 카드 : 강하고 또렷한 림 (Rim Intensity 1.5)\n조명 탭 역광 : 진짜 햇빛을 뒤로 보내기\n조명 탭 3점 조명 + 포인트 : 장면에 진짜 포인트 라이트 2개 켜기",
+   "tryThis": [
+    "쉐이더 탭 스타일라이즈드 카드를 누르고 역광 (림 라이트)를 끄고 켠다.",
+    "켠 상태로 캐릭터를 돌려 테두리 위치를 본다.",
+    "조명 탭 역광을 누르고 다시 캐릭터를 돌린다.",
+    "조명 탭 3점 조명 + 포인트를 눌러 본 뒤 환경 기본으로 돌린다."
+   ],
+   "check": "셰이더 림은 캐릭터를 돌려도 화면 오른쪽 위에 남고, 조명 탭 역광이 만든 밝은 테두리는 햇빛을 따라 몸 위에서 자리를 옮깁니다. 계산으로 만든 빛과 진짜 라이트의 차이입니다.",
+   "vague": "테두리 빛나게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더에서 스타일라이즈드 프리셋의 림 라이트를 더 얇고 또렷하게 하고 싶어. Rim Width를 0.3에서 0.15로, Rim Softness를 0.05로 두는 법과, Rim Color를 푸른빛으로 바꾸면 화면 어디가 달라지는지 알려줘.",
+   "script": "SemiRealInk.shader, StylePreset.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "쉐이더 탭 → 기능 켜고 끄기 → 역광 (림 라이트) 체크를 끄고 켜고, 조명 탭 역광과 비교한다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "Wipe",
+    "a": "원본 (URP Lit)",
+    "b": "스타일라이즈드"
+   },
+   "notion": "https://app.notion.com/406e1e08ef438127ba80f1a08461318b"
+  },
+  {
+   "id": "0305",
+   "sl": "SL13",
+   "cat": 3,
+   "sub": "조명",
+   "term": "환경광 · 그늘 색 (Ambient / Shadow Tint)",
+   "easy": "그늘에 스며드는 하늘빛 / 그늘을 차갑게 물들이기",
+   "concept": "환경광은 해가 아닌 하늘·땅에서 사방으로 오는 약한 빛이라, 그늘이 새까맣지 않게 해 준다. Unity는 이것을 SH(방향별 환경광을 숫자 몇 개로 줄인 것)로 담는다. 그늘 색은 셰이더가 그늘 쪽을 Shadow Tint 색으로 한 번 더 물들이는 기능이다.",
+   "labView": "쉐이더 탭 → 그늘 색 체크를 끄고 켜고, 디버그 보기 빛만 (회색 점토)에서 환경 카드를 바꿔 본다.",
+   "controls": "그늘 색 체크 : 그늘 물들이기 끄기·켜기\n디버그 보기 빛만 (회색 점토) : 그늘 색만 잘 보이게\n환경 탭 얼어붙은 세상 / 노을 / 달밤 : 환경광 색 바꾸기",
+   "tryThis": [
+    "맵·보기 탭 빛만 (회색 점토)를 누른다.",
+    "환경 탭에서 얼어붙은 세상 → 노을 → 달밤을 차례로 누르며 그늘 쪽 색을 본다.",
+    "쉐이더 탭에서 그늘 색을 끄고 켠다. 끝나면 보통 화면."
+   ],
+   "check": "빛만 보기에서 환경을 바꾸면 회색 캐릭터의 그늘 색이 환경마다 달라집니다(노을은 보랏빛, 달밤은 푸른빛). 그늘 색을 끄면 그늘의 푸른 기가 빠집니다.",
+   "vague": "그림자 색 바꿔줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더에서 그늘이 너무 파래. 장면 환경광은 그대로 두고 셰이더의 Shadow Tint 색만 RGB (0.7, 0.7, 0.75)로 덜 푸르게 바꾸는 법을 알려줘. 바닥에 지는 그림자는 바꾸지 않을 거야.",
+   "script": "SemiRealInk.shader, EnvironmentPreset.cs, StylePreset.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "쉐이더 탭 → 그늘 색 체크를 끄고 켜고, 디버그 보기 빛만 (회색 점토)에서 환경 카드를 바꿔 본다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "BOnly",
+    "debug": "LightingOnly"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381ccb2c8e6ab3d4a62f7"
+  },
+  {
+   "id": "0401",
+   "sl": "SL14",
+   "cat": 4,
+   "sub": "재질",
+   "term": "금속 반사 (반사 하이라이트 · 환경 반사)",
+   "easy": "빛이 반짝 맺히는 점 / 주변 풍경이 비치는 것",
+   "concept": "반사 하이라이트는 빛이 표면에 반짝 맺히는 점이다. 환경 반사는 하늘·주변이 금속·보석에 비쳐 보이는 것이다. 이 셰이더는 URP의 BRDF(빛이 어느 방향으로 얼마나 튕기는지 정하는 계산식)를 쓰는데, 금속은 확산광이 거의 없어서 환경 반사를 끄면 확 어두워진다.",
+   "labView": "환경 탭 맑은 한낮을 고르고, 쉐이더 탭 → 반사 하이라이트, 환경 반사 체크를 하나씩 끄고 켠다.",
+   "controls": "반사 하이라이트 체크 : 반짝 맺히는 점 끄기·켜기\n환경 반사 체크 : 주변이 비치는 반사 끄기·켜기\n디버그 보기 반사광만 : 반사만 남기고 보기\n환경 탭 맑은 한낮 : 금속 반사 확인용 환경",
+   "tryThis": [
+    "환경 탭 맑은 한낮, 비교 탭 B만 (4).",
+    "쉐이더 탭에서 반사 하이라이트를 끄고 켠다.",
+    "환경 반사를 끄고 켠다.",
+    "맵·보기 탭 반사광만을 누르고 환경 카드를 바꿔 본다. 끝나면 보통 화면."
+   ],
+   "check": "환경 반사를 끄면 갑옷 금속 판이 확 어두워집니다. 반사광만 보기에서 환경 카드를 바꾸면 갑옷에 비친 색이 환경마다 다릅니다.",
+   "vague": "더 번쩍번쩍하게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더에서 갑옷 금속 판을 더 반짝이게 하고 싶어. Specular Strength를 1에서 1.5로, Environment Reflection을 1에서 1.3으로 올리면 각각 무엇이 달라지는지, 반사 프로브를 다시 구워야 하는지 알려줘.",
+   "script": "SemiRealInk.shader",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "환경 탭 맑은 한낮을 고르고, 쉐이더 탭 → 반사 하이라이트, 환경 반사 체크를 하나씩 끄고 켠다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "BOnly",
+    "environment": "맑은 한낮"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381fc8eadf59ffd586285"
+  },
+  {
+   "id": "0403",
+   "sl": "SL16",
+   "cat": 4,
+   "sub": "재질",
+   "term": "천 광택 (Sheen)",
+   "easy": "천 가장자리에 생기는 뿌연 솜털 광택",
+   "concept": "Sheen(쉰)은 천 표면의 솜털이 비스듬한 빛을 받아 가장자리가 뿌옇게 밝아지는 것이다. Material Type이 Cloth인 머티리얼에서만 생긴다. 천은 반사 하이라이트를 약하게 줄이고, 금실 자수처럼 금속으로 판별된 곳만 반짝이게 둔다.",
+   "labView": "커스텀 탭 옷을 한복 (VARCO)으로 바꾸고, 조명 탭 45° 키 라이트에서 쉐이더 탭 → 천 광택 (Sheen) 체크를 끄고 켠다.",
+   "controls": "커스텀 탭 옷 한복 (VARCO) : 천(Cloth) 타입 옷으로\n천 광택 (Sheen) 체크 : 시인 끄기·켜기\n조명 탭 45° 키 라이트 : 가장자리 광택이 잘 보이는 빛\n왼쪽 드래그 / 휠 : 천천히 돌리며 치마 확대",
+   "tryThis": [
+    "커스텀 탭 옷 한복 (VARCO), 조명 탭 45° 키 라이트.",
+    "휠로 치마를 확대하고 캐릭터를 천천히 돌린다.",
+    "쉐이더 탭에서 천 광택 (Sheen)을 끄고 켠다."
+   ],
+   "check": "천의 가장자리(비스듬히 보이는 곳)만 뿌옇게 밝아졌다 꺼집니다. 정면으로 보이는 면은 거의 그대로입니다.",
+   "vague": "옷감 느낌 나게 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더를 쓰는 한복 머티리얼(Material Type = Cloth)을 벨벳처럼 보이게 하고 싶어. Sheen Falloff를 4에서 2로, Sheen Intensity를 0.35에서 0.8로 올리고 Sheen Color를 연한 노랑으로 바꾸면 가장자리 광택이 어떻게 달라지는지 알려줘.",
+   "script": "SemiRealInk.shader",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "커스텀 탭 옷을 한복 (VARCO)으로 바꾸고, 조명 탭 45° 키 라이트에서 쉐이더 탭 → 천 광택 (Sheen) 체크를 끄고 켠다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "BOnly",
+    "wear": [
+     "한복 (VARCO)"
+    ],
+    "lighting": "45° 키 라이트"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381f382a3ec5f28a40c7c"
+  },
+  {
+   "id": "0501",
+   "sl": "SL18",
+   "cat": 5,
+   "sub": "스타일·아웃라인",
+   "term": "먹 아웃라인 (Ink Outline)",
+   "easy": "붓으로 그린 듯한 외곽선",
+   "concept": "같은 메쉬를 뒷면 패스로 먹색으로 한 번 더 그리면서, 각 정점을 노멀 방향(화면에 투영한 방향)으로 몇 픽셀 밀어낸다. 바깥으로 삐져나온 이 띠가 외곽선이 된다. 굵기를 미터가 아니라 화면 픽셀로 맞춰서, 확대·축소해도 선 두께가 거의 같다. 붓처럼 굵기와 농도가 조금씩 들쭉날쭉하다.",
+   "labView": "비교 탭 A (왼쪽) = 세미리얼, B (오른쪽) = 스타일라이즈드로 두고 O 키(또는 쉐이더 탭 먹 아웃라인 체크)를 누른다.",
+   "controls": "O 또는 먹 아웃라인 체크 : 아웃라인 끄기·켜기 (A·B 같이)\nA (왼쪽) = 세미리얼, B (오른쪽) = 스타일라이즈드 : 가는 선 / 굵은 선 비교\n휠 : 확대·축소해도 선 두께가 같은지 보기\n디버그 보기 노멀 (방향 색) / 빛만 (회색 점토) : 아웃라인이 사라지는 보기 / 남는 보기",
+   "tryThis": [
+    "비교 탭 A (왼쪽) = 세미리얼, B (오른쪽) = 스타일라이즈드, 와이프 (1).",
+    "휠로 얼굴까지 확대했다가 전신까지 축소한다.",
+    "O를 몇 번 누른다.",
+    "쉐이더 탭에서 리얼 카드를 누르고 먹 아웃라인을 껐다 켠다."
+   ],
+   "check": "세미리얼은 가늘고 옅은 선, 스타일라이즈드는 굵고 진한 선(2.6픽셀)입니다. O를 누르면 A·B 양쪽 선이 같이 사라집니다. 리얼에서는 체크를 켜도 선이 생기지 않습니다.",
+   "vague": "외곽선 넣어줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 ShaderTest/SemiRealInk 셰이더 먹 아웃라인을 웹툰처럼 굵고 일정하게 하고 싶어. Width (Pixels) 3, Ink Opacity 1, Brush Variation 0으로 두면 되는지, 그리고 카메라 거리와 상관없이 선 두께가 같은 이유를 뒷면 부풀리기 방식으로 설명해 줘.",
+   "script": "SemiRealInk.shader, StylePreset.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "비교 탭 A (왼쪽) = 세미리얼, B (오른쪽) = 스타일라이즈드로 두고 O 키(또는 쉐이더 탭 먹 아웃라인 체크)를 누른다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "Wipe",
+    "a": "세미리얼",
+    "b": "스타일라이즈드"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381d7870eccf335af8878"
+  },
+  {
+   "id": "0502",
+   "sl": "SL19",
+   "cat": 5,
+   "sub": "스타일·아웃라인",
+   "term": "스타일 프리셋 (Style Preset)",
+   "easy": "덮어쓸 값만 적어 둔 화풍 설정 묶음",
+   "concept": "스타일 프리셋은 머티리얼마다 맞춘 값 위에 덮어쓸 값만 적은 에셋이다(ScriptableObject: 값만 담는 에셋을 만드는 C# 클래스). 체크하지 않은 값은 머티리얼 값을 그대로 쓴다. 그래서 같은 머티리얼로 리얼 ↔ 세미리얼 ↔ 스타일라이즈드를 오갈 수 있다.",
+   "labView": "쉐이더 탭 → 스타일 프리셋 (B 쪽)에서 카드 3장을 차례로 누른다. A 쪽은 비교 탭 A (왼쪽)에서 고른다.",
+   "controls": "리얼 : 실사 명암만. 보조광·역광·그늘 색·외곽선 없음\n세미리얼 : 아무것도 덮어쓰지 않음 = 부위별로 맞춘 기본값\n스타일라이즈드 : 또렷한 2단 명암, 강한 역광 테두리, 굵은 먹 선, 반사 줄임\n기능 켜고 끄기 체크 : 프리셋 위에서 기능 끄기 (켜서 새로 만들지는 못함)",
+   "tryThis": [
+    "쉐이더 탭에서 리얼 → 세미리얼 → 스타일라이즈드 카드를 차례로 누른다.",
+    "리얼 카드를 고른 채 먹 아웃라인을 껐다 켠다.",
+    "비교 탭에서 A (왼쪽) = 세미리얼, B (오른쪽) = 스타일라이즈드로 두고 와이프로 비교한다."
+   ],
+   "check": "리얼에서는 먹 아웃라인을 켜도 선이 생기지 않습니다. 스위치는 프리셋에서 꺼진 것을 켜지 못하고 끄기만 합니다. 플레이 중 바꾼 값은 머티리얼 복사본에만 걸려서 .mat 파일은 바뀌지 않습니다.",
+   "vague": "화풍 바꾸는 버튼 만들어줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 Create → Shader Lab → Style Preset으로 수묵화 프리셋을 하나 더 만들고 싶어. Realism 0.2, Shade Edge Softness 0.1, 아웃라인 굵기 3픽셀·농도 0.8, 림 라이트 Off만 덮어쓰고 나머지는 머티리얼 값을 쓰려면 어느 칸을 Enabled로 체크하는지, 그리고 Shader Lab 오브젝트의 Styles 목록에 넣는 법을 알려줘.",
+   "script": "StylePreset.cs, LabCharacter.cs, ShaderLabController.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "쉐이더 탭 → 스타일 프리셋 (B 쪽)에서 카드 3장을 차례로 누른다. A 쪽은 비교 탭 A (왼쪽)에서 고른다.",
+   "lab": {
+    "tab": "쉐이더",
+    "compare": "Wipe",
+    "a": "원본 (URP Lit)",
+    "b": "세미리얼"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381e4a389c7de08ee5d4c"
+  },
+  {
+   "id": "0601",
+   "sl": "SL20",
+   "cat": 6,
+   "sub": "환경·후처리",
+   "term": "환경 프리셋 · 반사 프로브",
+   "easy": "하늘·햇빛·반사·후처리를 한 번에 바꾸는 세트 / 주변 360°를 찍어 둔 사진",
+   "concept": "환경 프리셋은 하늘(스카이박스)·햇빛·환경광·안개·후처리 프로필·반사를 묶은 에셋이다. 반사 프로브는 한 점에서 본 주변 360°를 큐브맵(정육면체 6면 그림)으로 구워 두는 장치다. 금속·보석은 이 큐브맵을 비춰 보이므로 환경마다 반사 색이 달라진다.",
+   "labView": "환경 탭 → 환경 프리셋 카드 5장을 차례로 누르고, 맵·보기 탭 반사광만으로 갑옷에 비친 것을 본다.",
+   "controls": "얼어붙은 세상 : 차가운 겨울 해, 눈 바닥·얼음판, 푸른 그늘\n중립 스튜디오 : 어두운 배경·흰 빛. 쉐이더를 평가하는 기준 환경\n맑은 한낮 : 높이 뜬 강한 해, 진한 그림자\n노을 : 낮은 주황빛 해, 보랏빛 그늘\n달밤 : 푸른 달빛, 어두운 환경광\n디버그 보기 반사광만 : 갑옷에 비친 큐브맵만 보기",
+   "tryThis": [
+    "비교 탭 A (왼쪽) = 원본 (URP Lit), B (오른쪽) = 세미리얼, 와이프 (1).",
+    "환경 탭에서 카드 5장을 위에서부터 누르며 배경·그림자·그늘 색·안개·갑옷 반사를 본다.",
+    "맵·보기 탭 반사광만을 켜고 다시 카드를 바꾼다. 끝나면 보통 화면."
+   ],
+   "check": "카드 하나로 하늘, 그림자 방향, 그늘 색, 먼 바닥의 안개, 갑옷에 비친 색이 한꺼번에 바뀝니다. 바닥 소품과 후처리 색감도 환경마다 달라집니다.",
+   "vague": "분위기 바꿔줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트에서 Create → Shader Lab → Environment Preset으로 새벽 안개 환경을 만들고 싶어. 해 높이 10도의 연한 분홍빛 햇빛, 짙은 안개, Neutral 톤매핑 Volume 프로필로 하고, 이 환경에 맞는 반사 큐브맵(_Reflection.exr)을 반사 프로브로 다시 굽는 법까지 알려줘.",
+   "script": "EnvironmentPreset.cs, ShaderLabController.cs, SemiRealInkTestSetup.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "환경 탭 → 환경 프리셋 카드 5장을 차례로 누르고, 맵·보기 탭 반사광만으로 갑옷에 비친 것을 본다.",
+   "lab": {
+    "tab": "환경",
+    "compare": "Wipe",
+    "a": "원본 (URP Lit)",
+    "b": "세미리얼"
+   },
+   "notion": "https://app.notion.com/406e1e08ef438110bacee9b7b758b906"
+  },
+  {
+   "id": "0602",
+   "sl": "SL21",
+   "cat": 6,
+   "sub": "환경·후처리",
+   "term": "후처리 Volume · 톤매핑 · 노출",
+   "easy": "다 그린 화면에 마지막으로 거는 색보정 필터",
+   "concept": "후처리는 렌더링이 끝난 화면 전체에 거는 효과다(블룸·비네트·필름 그레인 등). URP에서는 Volume 컴포넌트가 Volume 프로필(어떤 효과를 얼마나 걸지 적은 에셋)을 읽어 건다. 톤매핑은 1보다 밝은 HDR 빛을 화면(0~1)에 담는 규칙이고, 노출은 화면 전체 밝기다(+1 EV = 2배).",
+   "labView": "후처리 탭에서 후처리 켜기 (P), 톤매핑 드롭다운, 노출 (EV) 슬라이더, 효과 하나씩 끄기를 차례로 만진다.",
+   "controls": "후처리 켜기 (P) : 후처리 전체 끄기·켜기\n톤매핑 None / Neutral / ACES : 밝은 색을 화면에 담는 방식 바꾸기\n노출 (EV) 슬라이더 : 화면 전체 밝기 (-3~3)\n블룸 (빛 번짐) / 비네트 (가장자리 어둡게) / 필름 그레인 (입자) : 효과 하나씩 끄기",
+   "tryThis": [
+    "환경 탭 얼어붙은 세상, 조명 탭 환경 기본.",
+    "후처리 탭에서 P를 눌러 껐다 켠다.",
+    "톤매핑을 None → Neutral → ACES로 바꾸며 갑옷 하이라이트와 하늘의 밝은 곳을 본다.",
+    "노출 (EV)를 -1, +1로 움직이고, 블룸·비네트·필름 그레인을 하나씩 끈다.",
+    "환경을 중립 스튜디오로 바꾸고 효과 하나씩 끄기 목록을 다시 본다."
+   ],
+   "check": "P로 끄면 푸른 색보정·비네트·필름 그레인이 모두 빠집니다. ACES는 대비가 강한 영화 느낌, Neutral은 색을 덜 비틉니다. 중립 스튜디오로 바꾸면 효과 목록이 톤매핑·색 조정만 남습니다. 환경마다 Volume 프로필이 다르기 때문입니다.",
+   "vague": "화면 좀 영화처럼 해줘",
+   "prompt": "Unity 6(6000.6.7f1) URP 17 프로젝트의 Global Volume에서, 노을 환경 Volume 프로필에 Post Exposure +0.5 EV, 블룸 Intensity 0.5를 플레이 중에만 걸고 싶어. 프로필 원본(.asset)이 바뀌지 않게 하려면 volume.profile과 sharedProfile 중 무엇을 써야 하는지와 C# 코드를 알려줘.",
+   "script": "ShaderLabController.cs, EnvironmentPreset.cs, CompareView.cs",
+   "dim": "3D",
+   "mode": "쉐이더 랩 시연",
+   "scene": "CharacterShaderTest",
+   "scenePath": "Assets/CharacterShaderTest/Scenes/CharacterShaderTest.unity",
+   "shows": "후처리 탭에서 후처리 켜기 (P), 톤매핑 드롭다운, 노출 (EV) 슬라이더, 효과 하나씩 끄기를 차례로 만진다.",
+   "lab": {
+    "tab": "후처리",
+    "compare": "Wipe"
+   },
+   "notion": "https://app.notion.com/406e1e08ef4381f18081fc7e9baff453"
+  }
+ ]
+}

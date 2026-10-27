@@ -1,6 +1,6 @@
 # 세미리얼 먹(墨) 캐릭터 쉐이더 — Unity URP 쉐이더 랩
 
-조선 스팀펑크 캐릭터에 입힌 **세미리얼 + 3포인트 조명 + 약한 먹 아웃라인** 쉐이더와,
+VARCO 3D 캐릭터에 입힌 **세미리얼 + 3포인트 조명 + 약한 먹 아웃라인** 쉐이더와,
 그 쉐이더를 여러 조건에서 바로 바꿔 보며 공부하는 **쉐이더 랩(Shader Lab)** 장면입니다.
 
 > **브랜치 안내**
@@ -13,17 +13,9 @@
 |---|---|
 | ![맵 스위치](Docs/images/lab_maps_toggle.png) | ![노멀 보기](Docs/images/lab_debug_normal.png) |
 
-| 환경 프리셋 (노을) | 재질 판별 보기 |
+| 환경 프리셋 (노을) | 디버그 보기 (이미시브) |
 |---|---|
-| ![노을](Docs/images/lab_environment_sunset.png) | ![재질 판별](Docs/images/material_masks.png) |
-
-| 애니메이션 (걷기 · 스타일라이즈드) | 커스텀 (마법사 로브 + 지팡이, 달밤) |
-|---|---|
-| ![걷기](Docs/images/lab_animation_walk.png) | ![마법사](Docs/images/lab_custom_mage_staff.png) |
-
-| 커스텀 (한복 + 활) | 디버그 보기 (이미시브) |
-|---|---|
-| ![한복](Docs/images/lab_custom_hanbok_bow.png) | ![이미시브](Docs/images/lab_debug_emission.png) |
+| ![노을](Docs/images/lab_environment_sunset.png) | ![이미시브](Docs/images/lab_debug_emission.png) |
 
 ---
 
@@ -72,10 +64,10 @@ git switch feature/shader-lab   # 쉐이더 랩 (main은 처음 공개한 예제
 | 환경 | 얼어붙은 세상 · 중립 스튜디오 · 맑은 한낮 · 노을 · 달밤 (하늘·햇빛·환경광·안개·후처리·반사가 한 번에 바뀜) |
 | 조명 | 환경 기본 · 정면광 · 45° 키 라이트 · 측면광 · 역광 · 탑라이트 · 3점 조명 + 포인트, 햇빛 방향 슬라이더 |
 | 후처리 | 후처리 전체 끄기, 톤매핑(None·Neutral·ACES), 노출, 효과 하나씩 끄기 (블룸·비네트·필름 그레인 …) |
-| 애니메이션 | 클립 재생·일시정지·1프레임 이동·시간 이동·속도·반복·루트 모션 (A·B 캐릭터가 같이 움직임) |
-| 커스텀 | 옷·무기 등 바꿔 끼우기 (A·B 캐릭터가 같이 바뀜) |
+| 커스텀 | 옷 바꿔 입히기: 갑옷 · 한복 · 마법사 로브 (VARCO, A·B 캐릭터가 같이 바뀜) |
 
-> 캐릭터는 처음에 **갑옷(VARCO)** 을 입고 나옵니다. 애니메이션은 VARCO 옷 3벌에서만 움직입니다 (FinalPlayer는 Humanoid 뼈대가 없어 T 포즈 그대로, 무기도 숨김).
+> 캐릭터는 처음에 **갑옷(VARCO)** 을 입고, 애니메이션 없이 기본 자세(T 포즈)로 서 있습니다.
+> 애니메이션·무기·FinalPlayer(조선 스팀펑크) 캐릭터는 다음 **'캐릭터·애니메이션'** 파트에서 다룹니다 (모델·클립 파일은 프로젝트에 그대로 있음).
 
 **스위치 규칙**: 맵·기능 스위치는 "끄기만" 합니다. 머티리얼이나 프리셋에서 원래 꺼져 있는 것은 켜도 생기지 않습니다
 (예: 리얼 프리셋은 아웃라인이 없으므로 아웃라인 스위치를 켜도 그려지지 않음). 스위치는 A·B 두 쪽에 똑같이 걸립니다.
@@ -89,7 +81,7 @@ git switch feature/shader-lab   # 쉐이더 랩 (main은 처음 공개한 예제
 | 1 / 2 / 3 / 4 | 와이프 / 나란히 / A만 / B만 |
 | Tab | A ↔ B 빠르게 전환 |
 | P | 후처리 켜기·끄기 |
-| M | 재질 판별 보기 (노랑 = 금속, 흰색 = 은·거울, 초록 = 보석, 붉은 기 = 피부, 푸른 기 = 천) |
+| M | 재질 판별 보기 (노랑 = 금속, 흰색 = 은·거울, 초록 = 보석, 붉은 기 = 피부, 푸른 기 = 천). VARCO 옷은 메탈릭 맵을 써서 색 판별을 꺼 두었으므로 천(한복·로브)만 푸르게 보입니다 |
 | O | 먹 아웃라인 켜기·끄기 |
 | Space | 자동 회전 |
 | F | 처음 시점 |
@@ -98,6 +90,23 @@ git switch feature/shader-lab   # 쉐이더 랩 (main은 처음 공개한 예제
 비교는 **A 캐릭터와 B 캐릭터를 같은 자리에 겹쳐 두고**, 레이어를 나눠 카메라 두 대로 그리는 방식입니다.
 와이프 모드에서는 B 화면을 전체 크기로 따로 그린 뒤 오른쪽만 덮기 때문에, 후처리(비네트·필름 그레인)가 양쪽에 똑같이 걸립니다.
 플레이 중에 바꾼 값은 실행할 때 만든 머티리얼 복사본에만 걸려서, 머티리얼·프로필 파일은 바뀌지 않습니다.
+
+### 4-1. 강의 모드
+
+플레이 중 **F4**를 누르면 강의 용어 목록이 열리고, 용어를 누르면 개발실 팀원이 단계별(분야 소개 → ① 소개 → ② 개념 → ③ 직접 보기 → ④ AI에게 요청)로 설명합니다.
+용어로 들어갈 때마다 랩(탭·비교 방식·스타일·디버그 보기·환경·조명·옷)이 그 용어를 보기 좋게 자동으로 준비됩니다.
+
+| 키 | 기능 |
+|---|---|
+| PgDn / ] · PgUp / [ | 다음 · 이전 단계 |
+| End · Home | 다음 · 이전 용어 |
+| F3 | 말풍선 숨기기·보이기 |
+| Backspace | 용어 목록 (랩을 처음 상태로) |
+| F4 | 강의 모드 끄기·켜기 |
+
+- 용어 데이터: `Lecture/Resources/ShaderLabGlossary.json` (OMP Studio 앱의 강의 준비 창도 같은 파일을 읽음). 용어별 랩 준비는 각 용어의 `lab` 칸
+- 강의 프로그램: **Tools → Shader Test → Build Lecture Player** → `Builds/LecturePlayer/ShaderLab.exe` (git에 올리지 않으므로 PC마다 한 번 빌드)
+  - `ShaderLab.exe -glossaryStart 0304 -glossaryLecture` : 그 용어부터 강의 · 인자 없음 : 그냥 쉐이더 랩 · 강의 중이 아닐 때 Esc : 종료
 
 ## 5. 쉐이더 구조 — `ShaderTest/SemiRealInk`
 
@@ -132,7 +141,7 @@ ORM처럼 한 장에 여러 값을 담은 텍스처는 **같은 텍스처를 세
 | 보석·유리 | 반사율 높게, 정면에서 볼수록 속이 은은하게 빛남 (불투명) |
 
 ### 재질 판별: 마스크 맵 또는 자동 판별
-- **마스크 맵** (`Use Mask Map` 켬): `Textures/FinalPlayer/Masks/*_Mask.png`
+- **마스크 맵** (`Use Mask Map` 켬): `*_Mask.png` (다음 파트에서 쓸 FinalPlayer용이 `Textures/FinalPlayer/Masks/`에 있음)
   - **R = 금속**(금·황동·구리·금실), **G = 보석·유리**, **B = 은·강철·거울**
   - 각 채널 세기는 `Metal / Gem / Silver Detect` 슬라이더로 조절
   - 마스크는 색이 아니라 데이터라서 sRGB를 끕니다 (`Editor/MaskTextureImporter.cs`가 `_Mask.png`를 자동 처리)
@@ -181,7 +190,7 @@ ORM처럼 한 장에 여러 값을 담은 텍스처는 **같은 텍스처를 세
 |---|---|---|
 | ![갑옷](Docs/varco/concept_armor.png) | ![한복](Docs/varco/concept_hanbok.png) | ![로브](Docs/varco/concept_magerobe.png) |
 
-같은 얼굴·체형의 여성 캐릭터를 옷만 바꿔 3벌 만들고, 무기 3개(검·활·지팡이)를 따로 만들었습니다.
+같은 얼굴·체형의 여성 캐릭터를 옷만 바꿔 3벌 만들었습니다. 무기 3개(검·활·지팡이)와 애니메이션 10개도 만들어 두었지만 쉐이더 랩에서는 쓰지 않고, 다음 '캐릭터·애니메이션' 파트에서 씁니다.
 
 | 단계 | 도구 | 내용 |
 |---|---|---|
@@ -192,8 +201,6 @@ ORM처럼 한 장에 여러 값을 담은 텍스처는 **같은 텍스처를 세
 | 5. 변환 | Blender (배치 스크립트) | glb → FBX, 텍스처 PNG로 꺼내기, 이미시브 맵(룬 문자·수정) 만들기, URP Lit용 메탈릭 맵 만들기 |
 | 6. 가져오기 | `Editor/VarcoAssetImporter.cs` | Humanoid, 키 1.7m, ORM·메탈릭 맵 sRGB 끔 |
 
-- **애니메이션 공유**: 클립은 갑옷 캐릭터 뼈대로 만들었지만 Humanoid라서 한복·로브에도 그대로 재생됩니다.
-- **무기**: `HandGrip`에 손 뼈 기준 쥐는 자세를 적어 두고, 옷을 바꾸면 새 옷의 오른손으로 옮겨 붙입니다.
 - **ORM 한 장**: 새 쉐이더는 ORM 텍스처 한 장을 메탈릭(B)·러프니스(G)·AO(R) 세 칸에 채널만 바꿔 넣어 씁니다. 원본(URP Lit) 쪽은 URP 규칙(R 메탈릭, A 스무스니스)에 맞춘 텍스처를 씁니다.
 
 ## 7. 폴더 구조
@@ -202,39 +209,33 @@ ORM처럼 한 장에 여러 값을 담은 텍스처는 **같은 텍스처를 세
 Assets/CharacterShaderTest/
 ├─ Shaders/SemiRealInk.shader          쉐이더 본체
 ├─ Scripts/
-│  ├─ ShaderLabController.cs           쉐이더 랩 상태 관리 (A/B·스위치·환경·조명·후처리·애니메이션·커스텀)
+│  ├─ ShaderLabController.cs           쉐이더 랩 상태 관리 (A/B·스위치·환경·조명·후처리·커스텀)
 │  ├─ ShaderLabUI.cs                   UI Toolkit 패널 (탭 내용 만들기·단축키·와이프 덮개)
-│  ├─ LabCharacter.cs                  캐릭터: 원본/새 쉐이더 머티리얼, 커스텀 칸, 애니메이션 클립
+│  ├─ LabCharacter.cs                  캐릭터: 원본/새 쉐이더 머티리얼, 커스텀(옷) 칸
 │  ├─ StylePreset.cs                   스타일 프리셋 에셋 + 맵·기능 스위치 이름
 │  ├─ EnvironmentPreset.cs             환경 프리셋 에셋
-│  ├─ AnimationTester.cs               Playable로 클립 재생·스크럽
 │  ├─ OrbitCamera.cs                   둘러보기 카메라
-│  ├─ CompareView.cs                   A/B 카메라 두 대 비교 화면
-│  └─ HandGrip.cs                      무기를 손 뼈에 쥐는 자세
+│  └─ CompareView.cs                   A/B 카메라 두 대 비교 화면
+├─ Lecture/                            강의 모드: Scripts/(진행·화면·랩 준비·명령줄), Editor/(강의 프로그램 빌드), Resources/(용어 JSON·팀원 그림)
 ├─ UI/ShaderLab.uxml · ShaderLab.uss   패널 구조 · 색과 모양
-├─ Editor/SemiRealInkTestSetup.cs      장면·머티리얼·프리셋·후처리 생성 메뉴, 부위별 프리셋
-├─ Editor/MaskTextureImporter.cs       *_Mask.png 자동 데이터 텍스처 처리
-├─ Editor/VarcoAssetImporter.cs        VARCO 모델·텍스처 가져오기 규칙 (Humanoid·크기·sRGB)
-├─ Materials/FinalPlayer/              원본 머티리얼 (URP Lit)
-├─ Materials/FinalPlayer_SemiRealInk/  새 쉐이더 머티리얼
+├─ Editor/SemiRealInkTestSetup.cs      장면·머티리얼·프리셋·후처리 생성 메뉴
+├─ Editor/MaskTextureImporter.cs       *_Mask.png 자동 데이터 텍스처 처리 (다음 파트의 FinalPlayer 마스크용)
+├─ Editor/VarcoAssetImporter.cs        VARCO 모델·텍스처·클립 가져오기 규칙 (Humanoid·크기·sRGB)
 ├─ Materials/Environment/              하늘·바닥·눈송이
-├─ Models/FinalPlayer.fbx              조선 스팀펑크 캐릭터 (Git LFS)
-├─ Models/Varco/                       VARCO 3D 캐릭터 3벌·무기 3개, Animations/ 클립 10개 (Git LFS)
+├─ Models/Varco/                       VARCO 3D 캐릭터 3벌 (랩에서 씀) · 무기 3개 · Animations/ 클립 10개 (다음 파트용) (Git LFS)
 ├─ Textures/Varco/                     VARCO 텍스처: BaseColor·ORM·Normal·Emission·MetallicSmoothness
 ├─ Materials/Varco/ · Varco_SemiRealInk/  VARCO 원본(URP Lit) · 새 쉐이더 머티리얼
-├─ Textures/FinalPlayer/               베이스·노멀 텍스처, Masks/ 마스크 맵 (Git LFS)
+├─ Models/FinalPlayer.fbx · Materials/FinalPlayer*/ · Textures/FinalPlayer/   조선 스팀펑크 캐릭터 (랩에서는 안 씀, 다음 파트용, Git LFS)
 ├─ Settings/                           후처리 프로필, Styles/ 스타일 프리셋, Environments/ 환경 프리셋·반사
 └─ Scenes/CharacterShaderTest.unity    쉐이더 랩 장면
 ```
 
 ## 8. 알려진 한계
 
-- 고글 렌즈·보석은 가죽·금속과 같은 텍스처·메쉬에 섞여 있어 **진짜 투명 유리는 아닙니다** (반짝이는 불투명 유리로 표현).
+- 보석·유리 판별은 진짜 투명 유리가 아니라 반짝이는 불투명 유리로 그립니다.
 - 나란히 보기에서는 후처리가 화면 반쪽마다 따로 걸립니다 (와이프 모드는 같게 걸림).
 - 피부 SSS는 실시간용 근사치입니다 (두께 맵 없이 투과광을 계산).
-- FinalPlayer 모델에는 메탈릭·러프니스·AO 맵이 없어서, 그 스위치는 이 모델에서 변화가 없습니다 (금속은 마스크 맵으로 판별). VARCO 캐릭터로 확인하세요.
-- VARCO 캐릭터는 몸·옷·얼굴이 머티리얼 하나라서 피부 SSS는 쓰지 않습니다 (한복·로브는 천 타입).
-- 무기 쥐는 자세는 T 포즈에서 계산한 근사치라, 동작에 따라 손에서 조금 떠 보일 수 있습니다.
+- VARCO 캐릭터는 몸·옷·얼굴이 머티리얼 하나라서 피부 SSS를 쓰지 않습니다 (한복·로브는 천 타입). 그래서 쉐이더 탭의 '피부 SSS' 체크는 지금 캐릭터에서 변화가 없습니다.
 - 맵·기능 스위치와 디버그 보기는 새 쉐이더 쪽에만 걸립니다. A를 원본(URP Lit)으로 두면 A는 그대로입니다.
 - UI 한글은 컴퓨터에 깔린 한글 글꼴(맑은 고딕 등)로 그립니다. 한글 글꼴이 없는 컴퓨터에서는 네모로 보일 수 있습니다.
 
