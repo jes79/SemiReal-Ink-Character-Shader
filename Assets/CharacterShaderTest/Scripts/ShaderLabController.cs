@@ -61,7 +61,6 @@ public class ShaderLabController : MonoBehaviour
 
     readonly Dictionary<LabMap, bool> maps = Enum.GetValues(typeof(LabMap)).Cast<LabMap>().ToDictionary(m => m, _ => true);
     readonly Dictionary<LabFeature, bool> features = Enum.GetValues(typeof(LabFeature)).Cast<LabFeature>().ToDictionary(f => f, _ => true);
-    readonly List<(Transform t, Vector3 pos, Quaternion rot)> characterHomes = new();
 
     IEnumerable<LabCharacter> Characters
     {
@@ -75,11 +74,8 @@ public class ShaderLabController : MonoBehaviour
     void Start()
     {
         foreach (var c in Characters)
-        {
             c.Initialize();
-            characterHomes.Add((c.transform, c.transform.position, c.transform.rotation));
-        }
-        Animation = new AnimationTester(Characters.Select(c => c.animator));
+        Animation = new AnimationTester(Characters.Select(c => c.ActiveAnimator));
 
         StyleB = Mathf.Clamp(defaultStyleB, 0, styles.Count - 1);
         RefreshCharacters();
@@ -286,22 +282,13 @@ public class ShaderLabController : MonoBehaviour
     public void StopAnimation()
     {
         Animation.Stop();
-        ResetCharacterPositions();
         NotifyChanged();
     }
 
     public void SetRootMotion(bool on)
     {
         Animation.SetRootMotion(on);
-        if (!on)
-            ResetCharacterPositions();
         NotifyChanged();
-    }
-
-    void ResetCharacterPositions()
-    {
-        foreach (var (t, pos, rot) in characterHomes)
-            t.SetPositionAndRotation(pos, rot);
     }
 
     // ---------------- 커스터마이징 ----------------
@@ -312,9 +299,28 @@ public class ShaderLabController : MonoBehaviour
 
     public void SelectSlotOption(string slot, int index)
     {
+        // 옷을 바꾸면 Animator(뼈대)도 바뀐다 → 재생 중이던 클립을 기억했다가 새 옷에서 이어서 재생
+        var clip = Animation.Clip;
+        float time = Animation.Time;
+        bool playing = Animation.Playing;
+        bool rootMotion = Animation.RootMotion;
+        float speed = Animation.Speed;
+        bool loop = Animation.Loop;
+        Animation.Dispose();
+
         // 두 캐릭터가 같은 옷·무기를 입어야 비교가 된다
         foreach (var c in Characters)
             c.SelectOption(slot, index);
+
+        Animation = new AnimationTester(Characters.Select(c => c.ActiveAnimator)) { Loop = loop };
+        Animation.SetSpeed(speed);
+        Animation.SetRootMotion(rootMotion);
+        if (clip != null)
+        {
+            Animation.Play(clip);
+            Animation.Seek(time);
+            Animation.SetPlaying(playing);
+        }
         // 새로 켜진 옷의 머티리얼에도 스타일·스위치를 다시 건다
         RefreshCharacters();
     }

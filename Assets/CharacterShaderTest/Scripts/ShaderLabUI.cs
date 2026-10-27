@@ -23,7 +23,7 @@ public class ShaderLabUI : MonoBehaviour
         (LabMap.Metallic, "메탈릭 맵", "끄면 슬라이더 값(Metallic)만 쓴다"),
         (LabMap.Roughness, "러프니스 맵", "끄면 슬라이더 값(Smoothness)만 쓴다"),
         (LabMap.Occlusion, "앰비언트 오클루전 (AO)", "끄면 틈새·접힌 곳의 그늘이 사라진다"),
-        (LabMap.Emission, "이미시브 맵", "스스로 빛나는 부분"),
+        (LabMap.Emission, "이미시브 맵", "끄면 스스로 빛나는 부분(룬 문자·수정)이 꺼진다"),
     };
 
     static readonly (LabFeature feature, string label, string help)[] FeatureInfo =
@@ -525,7 +525,7 @@ public class ShaderLabUI : MonoBehaviour
         var loop = LabToggle(c, "반복 재생", null, v => lab.Animation.Loop = v);
         refreshers.Add(() => loop.SetValueWithoutNotify(lab.Animation.Loop));
         var root = LabToggle(c, "루트 모션 (제자리에서 벗어나 이동)", "끄면 제자리에서 동작만 한다", lab.SetRootMotion);
-        refreshers.Add(() => root.SetValueWithoutNotify(lab.characterB != null && lab.characterB.animator != null && lab.characterB.animator.applyRootMotion));
+        refreshers.Add(() => root.SetValueWithoutNotify(lab.Animation.RootMotion));
     }
 
     void BuildCustomizeTab(VisualElement c)

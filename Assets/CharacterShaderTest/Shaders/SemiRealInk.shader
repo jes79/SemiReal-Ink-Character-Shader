@@ -454,8 +454,10 @@ Shader "ShaderTest/SemiRealInk"
                 half occlusion = _UseOcclusionMap > 0.5h
                     ? lerp(1.0h, SelectChannel(SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, input.uv), _OcclusionChannel), _OcclusionStrength)
                     : 1.0h;
-                half3 emission = _EmissionColor.rgb
-                    * (_UseEmissionMap > 0.5h ? SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, input.uv).rgb : half3(1, 1, 1));
+                // 이미시브는 맵을 끄면 빛도 꺼진다 (맵 없이 전체를 빛나게 하려면 맵 칸을 비우고 켠다 → 기본 흰 텍스처)
+                half3 emission = _UseEmissionMap > 0.5h
+                    ? _EmissionColor.rgb * SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, input.uv).rgb
+                    : half3(0, 0, 0);
 
                 // ---- 재질 판별 (마스크 맵 또는 색으로 자동) ----
                 SurfaceMasks masks = ComputeMasks(baseSample.rgb, input.uv);

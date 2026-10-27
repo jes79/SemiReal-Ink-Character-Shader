@@ -27,6 +27,10 @@ public static class SemiRealInkTestSetup
     const string ModelPath = Root + "/Models/FinalPlayer.fbx";
     const string SourceMaterialDir = Root + "/Materials/FinalPlayer";
     const string TargetMaterialDir = Root + "/Materials/FinalPlayer_SemiRealInk";
+    const string VarcoModelDir = Root + "/Models/Varco";
+    const string VarcoTextureDir = Root + "/Textures/Varco";
+    const string VarcoLitDir = Root + "/Materials/Varco";
+    const string VarcoLabDir = Root + "/Materials/Varco_SemiRealInk";
     const string EnvironmentMaterialDir = Root + "/Materials/Environment";
     const string SettingsDir = Root + "/Settings";
     const string StyleDir = SettingsDir + "/Styles";
@@ -73,6 +77,8 @@ public static class SemiRealInkTestSetup
             return;
 
         EnsureFolder(TargetMaterialDir);
+        EnsureFolder(VarcoLitDir);
+        EnsureFolder(VarcoLabDir);
         EnsureFolder(EnvironmentMaterialDir);
         EnsureFolder(StyleDir);
         EnsureFolder(EnvironmentDir);
@@ -80,7 +86,10 @@ public static class SemiRealInkTestSetup
 
         int originalLayer = EnsureLayer(OriginalLayer);
         int newLayer = EnsureLayer(NewLayer);
-        var remap = CreateMaterials(shader, resetAssets);
+        CreateVarcoLitMaterials();
+        var remap = new Dictionary<Material, Material>();
+        CreateMaterials(shader, resetAssets, SourceMaterialDir, TargetMaterialDir, remap);
+        CreateMaterials(shader, resetAssets, VarcoLitDir, VarcoLabDir, remap);
         var styles = CreateStylePresets(resetAssets);
         var environments = CreateEnvironmentPresets(resetAssets);
         BuildScene(model, remap, styles, environments, originalLayer, newLayer);
@@ -89,14 +98,15 @@ public static class SemiRealInkTestSetup
     // ------------------------------------------------------------------
     // 머티리얼
     // ------------------------------------------------------------------
-    static Dictionary<Material, Material> CreateMaterials(Shader shader, bool reset)
+    // 원본(URP Lit) 머티리얼마다 새 쉐이더 머티리얼을 하나씩 만들고, 원본 → 새 쉐이더 짝을 remap에 넣는다
+    static void CreateMaterials(Shader shader, bool reset, string sourceDir, string targetDir, Dictionary<Material, Material> remap)
     {
-        var remap = new Dictionary<Material, Material>();
-        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { SourceMaterialDir }))
+        bool varco = sourceDir == VarcoLitDir;
+        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { sourceDir }))
         {
             var sourcePath = AssetDatabase.GUIDToAssetPath(guid);
             var source = AssetDatabase.LoadAssetAtPath<Material>(sourcePath);
-            var targetPath = $"{TargetMaterialDir}/{Path.GetFileName(sourcePath)}";
+            var targetPath = $"{targetDir}/{Path.GetFileName(sourcePath)}";
 
             var target = AssetDatabase.LoadAssetAtPath<Material>(targetPath);
             if (target == null)
@@ -112,15 +122,92 @@ public static class SemiRealInkTestSetup
                 target.CopyPropertiesFromMaterial(defaults);
                 Object.DestroyImmediate(defaults);
                 CopyTextures(source, target);
-                ApplyPreset(target, source.name);
-                AssignMaskMap(target);
+                if (varco)
+                {
+                    ApplyVarcoPreset(target, source.name);
+                    AssignOrmMap(target, source.name.Replace("_Lit", ""));
+                }
+                else
+                {
+                    ApplyPreset(target, source.name);
+                    AssignMaskMap(target);
+                }
                 target.SetOverrideTag(PresetTag, PresetVersion);
                 EditorUtility.SetDirty(target);
             }
             remap[source] = target;
         }
         AssetDatabase.SaveAssets();
-        return remap;
+    }
+
+    // ---- VARCO 3D 모델: 텍스처(베이스·ORM·노멀·이미시브)로 원본(URP Lit) 머티리얼을 만든다 ----
+    static readonly string[] VarcoModels = { "Armor", "Hanbok", "MageRobe", "Sword", "Bow", "Staff" };
+
+    static void CreateVarcoLitMaterials()
+    {
+        foreach (var name in VarcoModels)
+        {
+            var m = CreateOrLoadMaterial($"{VarcoLitDir}/{name}_Lit.mat", "Universal Render Pipeline/Lit");
+            m.SetTexture("_BaseMap", LoadVarcoTexture(name, "BaseColor"));
+            m.SetTexture("_BumpMap", LoadVarcoTexture(name, "Normal"));
+            m.EnableKeyword("_NORMALMAP");
+            // URP Lit 메탈릭 맵 = R 메탈릭, A 스무스니스. AO는 G (Blender에서 ORM을 이 모양으로 바꿔 둔 텍스처)
+            var metallic = LoadVarcoTexture(name, "MetallicSmoothness");
+            m.SetTexture("_MetallicGlossMap", metallic);
+            m.SetFloat("_Smoothness", 1f);
+            m.EnableKeyword("_METALLICSPECGLOSSMAP");
+            m.SetTexture("_OcclusionMap", metallic);
+            m.SetFloat("_OcclusionStrength", 1f);
+            m.EnableKeyword("_OCCLUSIONMAP");
+            var emission = LoadVarcoTexture(name, "Emission");
+            if (emission != null)
+            {
+                m.SetTexture("_EmissionMap", emission);
+                m.SetColor("_EmissionColor", Color.white * 2f);
+                m.EnableKeyword("_EMISSION");
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+            EditorUtility.SetDirty(m);
+        }
+        AssetDatabase.SaveAssets();
+    }
+
+    static Texture2D LoadVarcoTexture(string model, string kind) =>
+        AssetDatabase.LoadAssetAtPath<Texture2D>($"{VarcoTextureDir}/{model}_{kind}.png");
+
+    // 새 쉐이더는 ORM 한 장을 그대로 쓴다: 같은 텍스처를 세 칸에 넣고 채널만 다르게 (R AO, G 러프니스, B 메탈릭)
+    static void AssignOrmMap(Material m, string model)
+    {
+        var orm = LoadVarcoTexture(model, "ORM");
+        if (orm == null)
+            return;
+        m.SetTexture("_MetallicMap", orm);
+        m.SetFloat("_MetallicChannel", 2f);
+        m.SetFloat("_UseMetallicMap", 1f);
+        m.SetTexture("_RoughnessMap", orm);
+        m.SetFloat("_RoughnessChannel", 1f);
+        m.SetFloat("_RoughnessIsSmoothness", 0f);
+        m.SetFloat("_UseRoughnessMap", 1f);
+        m.SetTexture("_OcclusionMap", orm);
+        m.SetFloat("_OcclusionChannel", 0f);
+        m.SetFloat("_UseOcclusionMap", 1f);
+    }
+
+    // VARCO 모델은 메탈릭 맵이 있어 색으로 금속을 찾는 자동 판별은 끈다
+    static void ApplyVarcoPreset(Material m, string sourceName)
+    {
+        SetSurfaceType(m, sourceName.StartsWith("Hanbok") || sourceName.StartsWith("MageRobe") ? SurfaceType.Cloth : SurfaceType.Standard);
+        m.SetFloat("_Cull", (float)CullMode.Off);
+        m.SetFloat("_MetalDetect", 0f);
+        m.SetFloat("_SilverDetect", 0f);
+        m.SetFloat("_GemDetect", 0f);
+        m.SetFloat("_Realism", 0.7f);
+        m.SetFloat("_SheenIntensity", 0.35f);
+        m.SetFloat("_ClothSpecular", 0.6f);
+        if (m.GetFloat("_UseEmissionMap") > 0.5f)
+            m.SetColor("_EmissionColor", Color.white * 2f);
+        m.DisableKeyword("_MASKMAP");
+        m.SetFloat("_UseMaskMap", 0f);
     }
 
     // 원본(URP Lit) 머티리얼의 텍스처를 옮긴다. 메탈릭·AO·이미시브 맵이 있으면 그것도 켠다
@@ -568,16 +655,11 @@ public static class SemiRealInkTestSetup
         environments = environmentPaths.Select(AssetDatabase.LoadAssetAtPath<EnvironmentPreset>).ToList();
 
         // ---- 캐릭터: 같은 자리에 겹치고 레이어로 나눈다 (A = 메인 카메라, B = 비교 카메라) ----
-        var characterA = CreateCharacter(model, "Character A (FinalPlayer)", originalLayer, remap, startWithLab: false);
-        var characterB = CreateCharacter(model, "Character B (FinalPlayer)", newLayer, remap, startWithLab: true);
+        // 캐릭터 하나 = 옷 4벌(VARCO 3벌 + FinalPlayer) + 무기 3개. 커스텀 탭에서 고른 것만 켜진다
+        var characterA = CreateCharacter(model, "Character A", originalLayer, remap, startWithLab: false);
+        var characterB = CreateCharacter(model, "Character B", newLayer, remap, startWithLab: true);
         int characterMask = (1 << originalLayer) | (1 << newLayer);
-
-        // 모델 기준점이 몸 가운데라서, 발이 바닥(y = 0)에 닿도록 두 캐릭터를 함께 올린다
-        var bounds = characterA.GetBounds();
-        float height = Mathf.Max(bounds.size.y, 0.1f);
-        var lift = new Vector3(0f, -bounds.min.y, 0f);
-        characterA.transform.position += lift;
-        characterB.transform.position += lift;
+        float height = Mathf.Max(characterA.GetBounds().size.y, 0.1f);
 
         // ---- 햇빛 (환경 프리셋이 색·세기·방향을 정한다) ----
         var lightGo = new GameObject("Sun");
@@ -671,14 +753,48 @@ public static class SemiRealInkTestSetup
         Debug.Log($"쉐이더 랩 장면 생성 완료: {ScenePath} (새 쉐이더 머티리얼 {remap.Count}개, 환경 {environments.Count}개). 플레이(▶)를 누르세요.");
     }
 
-    static LabCharacter CreateCharacter(GameObject model, string name, int layer, Dictionary<Material, Material> remap, bool startWithLab)
-    {
-        var go = (GameObject)PrefabUtility.InstantiatePrefab(model);
-        go.name = name;
-        SetLayerRecursively(go, layer);
+    const string OutfitSlot = "옷";
+    const string WeaponSlot = "무기";
 
-        var character = go.AddComponent<LabCharacter>();
-        foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
+    static LabCharacter CreateCharacter(GameObject finalPlayer, string name, int layer, Dictionary<Material, Material> remap, bool startWithLab)
+    {
+        var root = new GameObject(name);
+        var character = root.AddComponent<LabCharacter>();
+
+        // ---- 옷: 모델마다 발이 바닥(y = 0)에 닿게 올린다 ----
+        var outfits = new List<GameObject>
+        {
+            InstantiateOutfit($"{VarcoModelDir}/Armor.fbx", "갑옷 (VARCO)", root.transform),
+            InstantiateOutfit($"{VarcoModelDir}/Hanbok.fbx", "한복 (VARCO)", root.transform),
+            InstantiateOutfit($"{VarcoModelDir}/MageRobe.fbx", "마법사 로브 (VARCO)", root.transform),
+            InstantiateOutfit(AssetDatabase.GetAssetPath(finalPlayer), "조선 스팀펑크 (FinalPlayer)", root.transform),
+        };
+        foreach (var o in outfits)
+        {
+            var a = o.GetComponent<Animator>();
+            if (a != null)
+                a.applyRootMotion = false;
+        }
+        character.slots.Add(new LabCharacter.CustomizationSlot { name = OutfitSlot, options = outfits, defaultIndex = 0 });
+
+        // ---- 무기: 갑옷 캐릭터의 바인드 포즈(T 포즈)에서 오른손에 맞춰 쥐는 자세를 계산해 둔다 ----
+        var armorAnimator = outfits[0].GetComponent<Animator>();
+        var weapons = new List<GameObject>
+        {
+            CreateWeapon("Sword", "검", armorAnimator, root.transform, gripFromTop: 0.17f, bladeForward: true),
+            CreateWeapon("Bow", "활", armorAnimator, root.transform, gripFromTop: 0.5f, bladeForward: false),
+            CreateWeapon("Staff", "지팡이", armorAnimator, root.transform, gripFromTop: 0.42f, bladeForward: false),
+        };
+        character.slots.Add(new LabCharacter.CustomizationSlot { name = WeaponSlot, allowNone = true, options = weapons, defaultIndex = -1 });
+
+        // 처음 모습: 갑옷만 켜고 무기는 없음
+        for (int i = 0; i < outfits.Count; i++)
+            outfits[i].SetActive(i == 0);
+        foreach (var w in weapons)
+            w.SetActive(false);
+
+        SetLayerRecursively(root, layer);
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
         {
             var lit = renderer.sharedMaterials;
             var lab = lit.Select(m => m != null && remap.TryGetValue(m, out var r) ? r : m).ToArray();
@@ -687,15 +803,79 @@ public static class SemiRealInkTestSetup
                 renderer.sharedMaterials = lab;
         }
 
-        character.animator = go.GetComponent<Animator>();
-        if (character.animator == null)
-            character.animator = go.AddComponent<Animator>();
-        character.animator.applyRootMotion = false;
-        character.clips = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(model))
-            .OfType<AnimationClip>()
+        // VARCO 애니메이션 (Humanoid): 세 벌 옷이 같은 클립을 쓴다
+        character.clips = AssetDatabase.FindAssets("t:AnimationClip", new[] { VarcoModelDir + "/Animations" })
+            .Select(AssetDatabase.GUIDToAssetPath).Distinct()
+            .SelectMany(p => AssetDatabase.LoadAllAssetsAtPath(p).OfType<AnimationClip>())
             .Where(c => !c.name.StartsWith("__preview__"))
+            .OrderBy(c => Array.IndexOf(ClipOrder, c.name))
             .ToList();
         return character;
+    }
+
+    static readonly string[] ClipOrder = { "Idle", "Walk", "Run", "Jump", "SwordSlash", "ComboSlash", "ShootBow", "StaffSpin", "PalmMagic", "HitReact" };
+
+    static GameObject InstantiateOutfit(string path, string label, Transform parent)
+    {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(path), parent);
+        go.name = label;
+        // VARCO 모델은 장면 메뉴가 만든 원본(URP Lit) 머티리얼을 입힌다 (FBX에는 머티리얼을 넣지 않았다)
+        var file = Path.GetFileNameWithoutExtension(path);
+        var lit = AssetDatabase.LoadAssetAtPath<Material>($"{VarcoLitDir}/{file}_Lit.mat");
+        if (lit != null)
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                r.sharedMaterial = lit;
+        var bounds = MeasureBounds(go);
+        go.transform.position += new Vector3(0f, -bounds.min.y, 0f);
+        return go;
+    }
+
+    // 무기를 오른손에 쥐게 놓고, 손 뼈 기준 자세를 HandGrip에 적어 둔다
+    static GameObject CreateWeapon(string file, string label, Animator animator, Transform parent, float gripFromTop, bool bladeForward)
+    {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>($"{VarcoModelDir}/{file}.fbx"), parent);
+        go.name = label;
+        var lit = AssetDatabase.LoadAssetAtPath<Material>($"{VarcoLitDir}/{file}_Lit.mat");
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            r.sharedMaterial = lit;
+
+        var grip = go.AddComponent<HandGrip>();
+        var hand = animator != null && animator.isHuman ? animator.GetBoneTransform(grip.bone) : null;
+        if (hand == null)
+        {
+            Debug.LogWarning($"'{label}': 손 뼈를 찾지 못해 쥐는 자세를 계산하지 못했습니다.");
+            return go;
+        }
+
+        // 손잡이 위치 = 세워 둔 무기의 위에서 gripFromTop 비율 아래
+        go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+        var b = MeasureBounds(go);
+        var gripPoint = new Vector3(b.center.x, b.max.y - b.size.y * gripFromTop, b.center.z);
+        // 손바닥 = 손목 뼈에서 손가락 쪽으로 조금
+        var forearm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+        var along = forearm != null ? (hand.position - forearm.position).normalized : Vector3.zero;
+        var palm = hand.position + along * 0.07f;
+        // 검은 칼끝(아래쪽)이 캐릭터 앞(+Z)을 보게, 활·지팡이는 세운 채로 쥔다
+        var rotation = bladeForward ? Quaternion.FromToRotation(Vector3.down, Vector3.forward) : Quaternion.identity;
+        go.transform.SetPositionAndRotation(palm - rotation * gripPoint, rotation);
+
+        go.transform.SetParent(hand, true);
+        grip.localPosition = go.transform.localPosition;
+        grip.localRotation = go.transform.localRotation;
+        grip.localScale = go.transform.localScale;
+        go.transform.SetParent(parent, true);
+        return go;
+    }
+
+    static Bounds MeasureBounds(GameObject go)
+    {
+        var renderers = go.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+            return new Bounds(go.transform.position, Vector3.one);
+        var b = renderers[0].bounds;
+        foreach (var r in renderers)
+            b.Encapsulate(r.bounds);
+        return b;
     }
 
     static List<ShaderLabController.LightingPreset> CreateLightingPresets() => new()

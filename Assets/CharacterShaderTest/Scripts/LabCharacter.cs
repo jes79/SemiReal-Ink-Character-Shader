@@ -28,9 +28,20 @@ public class LabCharacter : MonoBehaviour
 
     public List<RendererMaterials> renderers = new();
     public List<CustomizationSlot> slots = new();
-    public Animator animator;
-    [Tooltip("애니메이션 테스트에 쓸 클립")]
+    [Tooltip("애니메이션 테스트에 쓸 클립 (Humanoid 클립이면 옷마다 뼈대가 달라도 같이 쓴다)")]
     public List<AnimationClip> clips = new();
+
+    // 지금 켜져 있는 옷(모델)의 Animator. 옷을 바꾸면 달라진다
+    public Animator ActiveAnimator
+    {
+        get
+        {
+            foreach (var a in GetComponentsInChildren<Animator>())
+                if (a.isHuman)
+                    return a;
+            return GetComponentInChildren<Animator>();
+        }
+    }
 
     // 실행 중에 만든 새 쉐이더 머티리얼 복사본 (renderers와 같은 순서)
     readonly List<Material[]> labInstances = new();
@@ -134,6 +145,31 @@ public class LabCharacter : MonoBehaviour
             if (slot.options[i] != null)
                 slot.options[i].SetActive(i == index);
         slotSelection[slotName] = index;
+        AttachGrips();
+    }
+
+    // 손에 드는 것(HandGrip이 붙은 후보)은 지금 입은 옷의 손 뼈로 옮긴다.
+    // 옷마다 뼈대가 따로라서, 옷을 바꾸면 무기도 새 옷의 손으로 옮겨야 한다
+    void AttachGrips()
+    {
+        var animator = ActiveAnimator;
+        foreach (var slot in slots)
+        {
+            int selected = GetSelection(slot.name);
+            if (selected < 0 || selected >= slot.options.Count || slot.options[selected] == null)
+                continue;
+            var option = slot.options[selected];
+            if (!option.TryGetComponent(out HandGrip grip))
+                continue;
+            var hand = animator != null && animator.isHuman ? animator.GetBoneTransform(grip.bone) : null;
+            // Humanoid 뼈대가 없는 모델(예: FinalPlayer)은 쥘 손이 없으니 무기를 숨긴다
+            option.SetActive(hand != null);
+            if (hand == null)
+                continue;
+            option.transform.SetParent(hand, false);
+            option.transform.SetLocalPositionAndRotation(grip.localPosition, grip.localRotation);
+            option.transform.localScale = grip.localScale;
+        }
     }
 
     public Bounds GetBounds()

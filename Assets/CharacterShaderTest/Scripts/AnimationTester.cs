@@ -10,6 +10,8 @@ public class AnimationTester
     class Track
     {
         public Animator animator;
+        public Vector3 homePosition;      // 루트 모션으로 움직였다가 멈추면 돌아올 자리
+        public Quaternion homeRotation;
         public PlayableGraph graph;
         public AnimationClipPlayable clipPlayable;
     }
@@ -19,6 +21,7 @@ public class AnimationTester
     public AnimationClip Clip { get; private set; }
     public bool Playing { get; private set; }
     public bool Loop { get; set; } = true;
+    public bool RootMotion { get; private set; }
     public float Speed { get; private set; } = 1f;
     public float Time => tracks.Count > 0 && Clip != null ? (float)tracks[0].clipPlayable.GetTime() : 0f;
     public float Length => Clip != null ? Clip.length : 0f;
@@ -27,7 +30,7 @@ public class AnimationTester
     {
         foreach (var a in animators)
             if (a != null)
-                tracks.Add(new Track { animator = a });
+                tracks.Add(new Track { animator = a, homePosition = a.transform.localPosition, homeRotation = a.transform.localRotation });
     }
 
     public void Play(AnimationClip clip)
@@ -60,6 +63,7 @@ public class AnimationTester
             {
                 t.animator.Rebind();
                 t.animator.Update(0f);
+                t.animator.transform.SetLocalPositionAndRotation(t.homePosition, t.homeRotation);
             }
         }
         Clip = null;
@@ -112,9 +116,15 @@ public class AnimationTester
 
     public void SetRootMotion(bool on)
     {
+        RootMotion = on;
         foreach (var t in tracks)
-            if (t.animator != null)
-                t.animator.applyRootMotion = on;
+        {
+            if (t.animator == null)
+                continue;
+            t.animator.applyRootMotion = on;
+            if (!on)
+                t.animator.transform.SetLocalPositionAndRotation(t.homePosition, t.homeRotation);
+        }
     }
 
     // 매 프레임: 반복 재생 / 끝에서 멈춤 처리
