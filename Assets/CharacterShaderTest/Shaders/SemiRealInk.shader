@@ -1,10 +1,14 @@
-// 세미리얼 캐릭터 쉐이더 (URP)
-// - 키 라이트: 장면의 메인 디렉셔널 라이트 (부드러운 명암 경계 + 그림자)
+// 세미리얼 캐릭터 쉐이더 (URP) — 쉐이더 랩 버전
+// - 표면 맵: 베이스·노멀·메탈릭·러프니스·AO·이미시브. 맵마다 "Use ... Map" 체크로 켜고 끈다
+//   (ORM처럼 여러 값을 한 장에 담은 텍스처는 같은 텍스처를 넣고 채널만 R/G/B/A로 고른다)
+// - 키 라이트: 장면의 메인 디렉셔널 라이트 (실사 명암 ↔ 2단 명암을 Realism으로 섞음 + 그림자)
 // - 필 라이트: 카메라 기준 방향의 보조광 (쉐이더 안에서 계산)
 // - 림 라이트: 카메라 기준 뒤쪽에서 오는 역광 (윤곽 강조)
 // - 재질: 머티리얼 타입(일반/피부 SSS/천) + 텍스처 색으로 금·은·보석 부분을 픽셀 단위로 자동 판별
-//         (마스크 텍스처를 넣으면 자동 판별 대신 그걸 쓴다: R = 금속, G = 유리·보석)
+//         (마스크 텍스처를 넣으면 자동 판별 대신 그걸 쓴다: R = 금속, G = 유리·보석, B = 은)
 // - 먹 아웃라인: 노멀 방향으로 부풀린 뒷면을 반투명 먹색으로 그림, 굵기·농도가 붓처럼 들쭉날쭉
+// - 기능 스위치(Features): 반사광·환경 반사·보조광·역광·피부 SSS·천 광택·그늘 색·아웃라인을 하나씩 끄고 켠다
+// - 디버그 보기: 뷰어가 전역 값 _ShaderLabDebugView로 고른다 (맵 하나만 보기, 빛만 보기 등)
 // 기본 색은 "얼어붙은 세상" 기준: 그늘·보조광·역광이 차갑고, 피부 혈색(SSS)만 따뜻하다
 Shader "ShaderTest/SemiRealInk"
 {
@@ -13,11 +17,41 @@ Shader "ShaderTest/SemiRealInk"
         [Header(Surface)]
         [MainTexture] _BaseMap ("Base Map", 2D) = "white" {}
         [MainColor] _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
+        [ToggleUI] _UseBaseMap ("Use Base Map", Float) = 1
         [Normal][NoScaleOffset] _BumpMap ("Normal Map", 2D) = "bump" {}
         _BumpScale ("Normal Strength", Range(0, 2)) = 1
-        _Smoothness ("Smoothness", Range(0, 1)) = 0.35
+        [ToggleUI] _UseNormalMap ("Use Normal Map", Float) = 1
+        _Smoothness ("Smoothness (No Map)", Range(0, 1)) = 0.35
         _SpecularStrength ("Specular Strength", Range(0, 2)) = 1
         _ReflectionStrength ("Environment Reflection", Range(0, 2)) = 1
+
+        // ORM처럼 한 장에 여러 값이 담긴 텍스처: 같은 텍스처를 세 칸에 넣고 채널만 다르게 고른다 (glTF ORM = R AO, G 러프니스, B 메탈릭)
+        [Header(PBR Maps)]
+        _Metallic ("Metallic (No Map)", Range(0, 1)) = 0
+        [NoScaleOffset] _MetallicMap ("Metallic Map", 2D) = "black" {}
+        [Enum(R, 0, G, 1, B, 2, A, 3)] _MetallicChannel ("Metallic Channel", Float) = 0
+        [ToggleUI] _UseMetallicMap ("Use Metallic Map", Float) = 0
+        [NoScaleOffset] _RoughnessMap ("Roughness Map", 2D) = "white" {}
+        [Enum(R, 0, G, 1, B, 2, A, 3)] _RoughnessChannel ("Roughness Channel", Float) = 0
+        [ToggleUI] _RoughnessIsSmoothness ("Map Stores Smoothness (Unity Style)", Float) = 0
+        [ToggleUI] _UseRoughnessMap ("Use Roughness Map", Float) = 0
+        [NoScaleOffset] _OcclusionMap ("Ambient Occlusion Map", 2D) = "white" {}
+        [Enum(R, 0, G, 1, B, 2, A, 3)] _OcclusionChannel ("Occlusion Channel", Float) = 0
+        _OcclusionStrength ("Occlusion Strength", Range(0, 1)) = 1
+        [ToggleUI] _UseOcclusionMap ("Use Occlusion Map", Float) = 0
+        [NoScaleOffset] _EmissionMap ("Emission Map", 2D) = "white" {}
+        [HDR] _EmissionColor ("Emission Color", Color) = (0, 0, 0, 1)
+        [ToggleUI] _UseEmissionMap ("Use Emission Map", Float) = 0
+
+        [Header(Features)]
+        [ToggleUI] _EnableSpecular ("Specular Highlight", Float) = 1
+        [ToggleUI] _EnableEnvReflection ("Environment Reflection", Float) = 1
+        [ToggleUI] _EnableFillLight ("Fill Light", Float) = 1
+        [ToggleUI] _EnableRimLight ("Rim Light", Float) = 1
+        [ToggleUI] _EnableSubsurface ("Skin Subsurface (Skin Type)", Float) = 1
+        [ToggleUI] _EnableSheen ("Cloth Sheen (Cloth Type)", Float) = 1
+        [ToggleUI] _EnableShadowTint ("Shadow Tint", Float) = 1
+        [ToggleUI] _EnableOutline ("Ink Outline", Float) = 1
 
         [Header(Material Type)]
         [KeywordEnum(Standard, Skin, Cloth)] _MaterialType ("Material Type", Float) = 0
@@ -110,14 +144,17 @@ Shader "ShaderTest/SemiRealInk"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-        TEXTURE2D(_BaseMap);    SAMPLER(sampler_BaseMap);
-        TEXTURE2D(_BumpMap);    SAMPLER(sampler_BumpMap);
-        TEXTURE2D(_MaskMap);    SAMPLER(sampler_MaskMap);
+        TEXTURE2D(_BaseMap);        SAMPLER(sampler_BaseMap);
+        TEXTURE2D(_BumpMap);        SAMPLER(sampler_BumpMap);
+        TEXTURE2D(_MaskMap);        SAMPLER(sampler_MaskMap);
+        TEXTURE2D(_MetallicMap);    SAMPLER(sampler_MetallicMap);
+        TEXTURE2D(_RoughnessMap);   SAMPLER(sampler_RoughnessMap);
+        TEXTURE2D(_OcclusionMap);   SAMPLER(sampler_OcclusionMap);
+        TEXTURE2D(_EmissionMap);    SAMPLER(sampler_EmissionMap);
 
-        // 비교 뷰어가 전역으로 켜는 "재질 판별 보기" (머티리얼 값이 아니라 장면 전체 스위치)
-        half _ShaderTestDebugMasks;
-        // 비교 뷰어의 "아웃라인 숨기기" 스위치 (0 = 보임이 기본값: 뷰어가 없는 장면에서도 아웃라인이 나온다)
-        half _ShaderTestHideOutline;
+        // 뷰어가 전역으로 고르는 "디버그 보기" (머티리얼 값이 아니라 장면 전체 스위치, 0 = 보통 화면)
+        // 1 베이스 색 / 2 노멀 / 3 메탈릭 / 4 러프니스 / 5 AO / 6 이미시브 / 7 빛만 (회색 점토) / 8 반사광만 / 9 재질 판별
+        half _ShaderLabDebugView;
 
         // 모든 패스가 같은 머티리얼 버퍼를 써야 SRP Batcher가 동작한다
         CBUFFER_START(UnityPerMaterial)
@@ -127,6 +164,27 @@ Shader "ShaderTest/SemiRealInk"
             half _Smoothness;
             half _SpecularStrength;
             half _ReflectionStrength;
+            half _UseBaseMap;
+            half _UseNormalMap;
+            half _Metallic;
+            half _MetallicChannel;
+            half _UseMetallicMap;
+            half _RoughnessChannel;
+            half _RoughnessIsSmoothness;
+            half _UseRoughnessMap;
+            half _OcclusionChannel;
+            half _OcclusionStrength;
+            half _UseOcclusionMap;
+            half4 _EmissionColor;
+            half _UseEmissionMap;
+            half _EnableSpecular;
+            half _EnableEnvReflection;
+            half _EnableFillLight;
+            half _EnableRimLight;
+            half _EnableSubsurface;
+            half _EnableSheen;
+            half _EnableShadowTint;
+            half _EnableOutline;
             half4 _SubsurfaceColor;
             half _ScatterWidth;
             half _DiffuseNormalBlur;
@@ -175,6 +233,27 @@ Shader "ShaderTest/SemiRealInk"
             half _OutlineNoiseScale;
             half _OutlineNoiseAmount;
         CBUFFER_END
+
+        // R/G/B/A 중 하나 고르기 (ORM처럼 한 장에 여러 값을 담은 텍스처용)
+        half SelectChannel(half4 v, half channel)
+        {
+            return channel < 0.5h ? v.r : channel < 1.5h ? v.g : channel < 2.5h ? v.b : v.a;
+        }
+
+        // 베이스 색: 맵을 끄면 Base Color만 남는다
+        half4 SampleBase(float2 uv)
+        {
+            half4 tex = _UseBaseMap > 0.5h ? SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv) : half4(1, 1, 1, 1);
+            return tex * _BaseColor;
+        }
+
+        // 노멀맵 (탄젠트 공간): 맵을 끄면 평평한 면 (0, 0, 1)
+        half3 SampleNormalTS(float2 uv)
+        {
+            if (_UseNormalMap < 0.5h)
+                return half3(0, 0, 1);
+            return UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, uv), _BumpScale);
+        }
         ENDHLSL
 
         // ------------------------------------------------------------------
@@ -308,22 +387,27 @@ Shader "ShaderTest/SemiRealInk"
                 half NdotL = dot(Nd, light.direction);
                 half3 transmission = 0;
             #if defined(_MATERIALTYPE_SKIN)
-                // 피부 SSS: 빨강이 더 깊이 퍼진다 → 명암 경계가 붉고 부드럽게 넘어간다
-                half3 w = _ScatterWidth * half3(1.0h, 0.45h, 0.25h);
-                half3 wrapped = saturate((NdotL + w) / (1.0h + w));
-                half3 shade = lerp(ShadeTerm(NdotL).xxx, wrapped, max(_Realism, 0.6h));
-                // 그림자 가장자리(반그림자)도 붉게 번진다
-                half shadow = light.shadowAttenuation;
-                half penumbra = shadow * (1.0h - shadow) * 4.0h;
-                half3 shadow3 = saturate(shadow + penumbra * _ScatterWidth * 0.6h * _SubsurfaceColor.rgb);
-                shade3 = shade * shadow3 * light.distanceAttenuation;
-                // 투과광: 귀·손가락처럼 얇은 곳 뒤에서 빛이 오면 붉게 비친다
-                half3 transDir = light.direction + N * _TransmissionDistortion;
-                half trans = pow(saturate(dot(V, -transDir)), _TransmissionPower) * _TransmissionStrength;
-                transmission = trans * _SubsurfaceColor.rgb * lerp(1.0h, shadow, 0.5h) * light.distanceAttenuation;
-            #else
-                shade3 = (ShadeTerm(NdotL) * light.shadowAttenuation * light.distanceAttenuation).xxx;
+                if (_EnableSubsurface > 0.5h)
+                {
+                    // 피부 SSS: 빨강이 더 깊이 퍼진다 → 명암 경계가 붉고 부드럽게 넘어간다
+                    half3 w = _ScatterWidth * half3(1.0h, 0.45h, 0.25h);
+                    half3 wrapped = saturate((NdotL + w) / (1.0h + w));
+                    half3 shade = lerp(ShadeTerm(NdotL).xxx, wrapped, max(_Realism, 0.6h));
+                    // 그림자 가장자리(반그림자)도 붉게 번진다
+                    half shadow = light.shadowAttenuation;
+                    half penumbra = shadow * (1.0h - shadow) * 4.0h;
+                    half3 shadow3 = saturate(shadow + penumbra * _ScatterWidth * 0.6h * _SubsurfaceColor.rgb);
+                    shade3 = shade * shadow3 * light.distanceAttenuation;
+                    // 투과광: 귀·손가락처럼 얇은 곳 뒤에서 빛이 오면 붉게 비친다
+                    half3 transDir = light.direction + N * _TransmissionDistortion;
+                    half trans = pow(saturate(dot(V, -transDir)), _TransmissionPower) * _TransmissionStrength;
+                    transmission = trans * _SubsurfaceColor.rgb * lerp(1.0h, shadow, 0.5h) * light.distanceAttenuation;
+                }
+                else
             #endif
+                {
+                    shade3 = (ShadeTerm(NdotL) * light.shadowAttenuation * light.distanceAttenuation).xxx;
+                }
                 half3 diffuse = brdf.diffuse * (shade3 + transmission);
                 half NdotLs = saturate(dot(N, light.direction));
                 half3 spec = brdf.specular * DirectBRDFSpecular(brdf, N, light.direction, V)
@@ -341,14 +425,15 @@ Shader "ShaderTest/SemiRealInk"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
+                // 재질 판별은 베이스 맵을 꺼도 텍스처 원래 색으로 한다 (맵을 끄면 흰색이라 전부 은으로 판별되기 때문)
                 half4 baseSample = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-                half3 albedo = baseSample.rgb * _BaseColor.rgb;
+                half3 albedo = (_UseBaseMap > 0.5h ? baseSample.rgb : half3(1, 1, 1)) * _BaseColor.rgb;
                 bool isFrontFace = IS_FRONT_VFACE(facing, true, false);
                 // 안쪽 면(한 겹 옷의 안감): 지정한 색으로 바꿀 수 있다
                 albedo = isFrontFace ? albedo : lerp(albedo, _BackFaceColor.rgb, _BackFaceColor.a);
 
-                // 노멀맵
-                half3 normalTS = UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, input.uv), _BumpScale);
+                // 노멀맵 (꺼져 있으면 평평한 면)
+                half3 normalTS = SampleNormalTS(input.uv);
                 float sgn = input.tangentWS.w;
                 float3 bitangent = sgn * cross(input.normalWS, input.tangentWS.xyz);
                 half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent, input.normalWS);
@@ -358,12 +443,35 @@ Shader "ShaderTest/SemiRealInk"
                 half3 V = GetWorldSpaceNormalizeViewDir(input.positionWS);
                 half NdotV = saturate(dot(N, V));
 
-                // ---- 재질 판별 ----
+                // ---- PBR 맵: 꺼져 있으면 슬라이더 값 ----
+                half mapMetallic = _UseMetallicMap > 0.5h
+                    ? SelectChannel(SAMPLE_TEXTURE2D(_MetallicMap, sampler_MetallicMap, input.uv), _MetallicChannel)
+                    : _Metallic;
+                half roughSample = SelectChannel(SAMPLE_TEXTURE2D(_RoughnessMap, sampler_RoughnessMap, input.uv), _RoughnessChannel);
+                half mapSmoothness = _UseRoughnessMap > 0.5h
+                    ? (_RoughnessIsSmoothness > 0.5h ? roughSample : 1.0h - roughSample)
+                    : _Smoothness;
+                half occlusion = _UseOcclusionMap > 0.5h
+                    ? lerp(1.0h, SelectChannel(SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, input.uv), _OcclusionChannel), _OcclusionStrength)
+                    : 1.0h;
+                half3 emission = _EmissionColor.rgb
+                    * (_UseEmissionMap > 0.5h ? SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, input.uv).rgb : half3(1, 1, 1));
+
+                // ---- 재질 판별 (마스크 맵 또는 색으로 자동) ----
                 SurfaceMasks masks = ComputeMasks(baseSample.rgb, input.uv);
-                half metallic = saturate(masks.metal + masks.silver);
+                half maskMetal = saturate(masks.metal + masks.silver);   // 판별로 찾은 금속 (금·은)
+                half metallic = saturate(mapMetallic + maskMetal);
                 half gem = masks.gem * (1.0h - metallic);
 
-                if (_ShaderTestDebugMasks > 0.5h)
+                // ---- 디버그 보기: 맵·값 하나만 화면에 ----
+                int debugView = (int)(_ShaderLabDebugView + 0.5h);
+                if (debugView == 1) return half4(albedo, 1);
+                if (debugView == 2) return half4(N * 0.5h + 0.5h, 1);
+                if (debugView == 3) return half4(metallic.xxx, 1);
+                if (debugView == 4) return half4((1.0h - mapSmoothness).xxx, 1);
+                if (debugView == 5) return half4(occlusion.xxx, 1);
+                if (debugView == 6) return half4(emission, 1);
+                if (debugView == 9)
                 {
                     // 판별 결과 보기: 노랑 = 금속, 흰색 = 은·거울, 초록 = 유리·보석, 붉은 기 = 피부, 푸른 기 = 천
                     half3 dbg = albedo * 0.25h + half3(1.0h, 0.8h, 0.1h) * masks.metal
@@ -375,8 +483,18 @@ Shader "ShaderTest/SemiRealInk"
                 #endif
                     return half4(dbg, 1);
                 }
+                bool lightingOnly = debugView == 7;   // 회색 점토처럼: 색·금속 없이 빛과 그림자만
+                bool specularOnly = debugView == 8;   // 반사광(하이라이트·환경 반사)만
+                if (lightingOnly)
+                {
+                    albedo = half3(0.5h, 0.5h, 0.5h);
+                    metallic = 0.0h;
+                    maskMetal = 0.0h;
+                    gem = 0.0h;
+                    emission = 0.0h;
+                }
 
-                half smoothness = lerp(_Smoothness, _MetalSmoothness, metallic);
+                half smoothness = lerp(mapSmoothness, _MetalSmoothness, maskMetal);
                 smoothness = lerp(smoothness, _GemSmoothness, gem);
 
                 half alpha = 1.0h;
@@ -388,30 +506,32 @@ Shader "ShaderTest/SemiRealInk"
                 // 금속 반사색의 채도를 올린다: 채도 낮은 금실(베이지)이 차가운 하늘을 비춰 은색처럼 보이는 것을 막는다
                 half f0Luma = dot(brdf.specular, half3(0.2126h, 0.7152h, 0.0722h));
                 half3 saturatedF0 = max(0.0h, f0Luma + (brdf.specular - f0Luma) * (1.0h + _MetalSaturation));
-                brdf.specular = lerp(brdf.specular, saturatedF0, metallic);
+                brdf.specular = lerp(brdf.specular, saturatedF0, maskMetal);
+                if (specularOnly)
+                    brdf.diffuse = 0.0h;
 
                 // 천은 하이라이트·반사를 줄인다 (금실 자수처럼 금속으로 판별된 곳은 그대로)
                 half surfaceSpec = 1.0h;
             #if defined(_MATERIALTYPE_CLOTH)
                 surfaceSpec = lerp(_ClothSpecular, 1.0h, saturate(metallic + gem));
             #endif
-                // 금속 부분(금실 자수 포함)만 하이라이트·반사를 더 키울 수 있다
-                half metalBoost = lerp(1.0h, _MetalBoost, metallic);
-                half specScale = _SpecularStrength * surfaceSpec * metalBoost;
+                // 판별된 금속 부분(금실 자수 포함)만 하이라이트·반사를 더 키울 수 있다
+                half metalBoost = lerp(1.0h, _MetalBoost, maskMetal);
+                half specScale = _SpecularStrength * surfaceSpec * metalBoost * _EnableSpecular;
 
                 // 피부는 확산광에 노멀맵을 흐리게 써서 모공이 거칠게 보이지 않게 한다
                 half3 Nd = N;
             #if defined(_MATERIALTYPE_SKIN)
-                Nd = SafeNormalize(lerp(N, Ngeo, _DiffuseNormalBlur));
+                Nd = SafeNormalize(lerp(N, Ngeo, _DiffuseNormalBlur * _EnableSubsurface));
             #endif
 
                 float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
                 half aoDirect = 1.0h;
-                half aoIndirect = 1.0h;
+                half aoIndirect = occlusion;   // AO 맵은 환경광·환경 반사만 가린다 (URP Lit과 같은 규칙)
             #if defined(_SCREEN_SPACE_OCCLUSION)
                 AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(screenUV);
                 aoDirect = ao.directAmbientOcclusion;
-                aoIndirect = ao.indirectAmbientOcclusion;
+                aoIndirect *= ao.indirectAmbientOcclusion;
             #endif
 
                 // ---- 키 라이트 (장면 메인 라이트) ----
@@ -422,12 +542,13 @@ Shader "ShaderTest/SemiRealInk"
 
                 // ---- 환경광 + 환경 반사 (금속·보석이 금속답게 보이는 핵심) ----
                 half3 ambient = SampleSH(Nd) * _AmbientStrength * aoIndirect;
-                // 그늘진 쪽은 차가운 색으로 물들인다 (얼어붙은 세상)
-                color += brdf.diffuse * ambient * lerp(_ShadowTint.rgb, half3(1, 1, 1), keyShade);
+                // 그늘진 쪽은 차가운 색으로 물들인다 (얼어붙은 세상). 끄면 환경광 색 그대로
+                half3 shadowTint = lerp(half3(1, 1, 1), _ShadowTint.rgb, _EnableShadowTint);
+                color += brdf.diffuse * ambient * lerp(shadowTint, half3(1, 1, 1), keyShade);
                 half3 reflectDir = reflect(-V, N);
                 half3 envRefl = GlossyEnvironmentReflection(reflectDir, input.positionWS, brdf.perceptualRoughness, aoIndirect, screenUV);
                 half fresnel = Pow4(1.0h - NdotV);
-                color += envRefl * EnvironmentBRDFSpecular(brdf, fresnel) * _ReflectionStrength * surfaceSpec * metalBoost;
+                color += envRefl * EnvironmentBRDFSpecular(brdf, fresnel) * _ReflectionStrength * surfaceSpec * metalBoost * _EnableEnvReflection;
 
                 // ---- 추가 라이트 (포인트·스팟) ----
                 // 버텍스 라이팅 모드여도 픽셀 단위로 계산한다
@@ -455,29 +576,35 @@ Shader "ShaderTest/SemiRealInk"
                 // ---- 필 라이트 (카메라 기준, 그림자 없음) ----
                 half3 fillDir = CameraSpaceDirToWorld(_FillDirection.xyz);
                 half fillWrap = saturate(dot(Nd, fillDir) * 0.5h + 0.5h);
-                half3 fillLight = _FillColor.rgb * _FillIntensity;
+                half3 fillLight = _FillColor.rgb * _FillIntensity * _EnableFillLight;
                 color += brdf.diffuse * fillLight * (fillWrap * fillWrap);
                 // 금속·보석은 필 라이트에서도 두 번째 하이라이트가 생겨 입체감이 산다
                 color += brdf.specular * DirectBRDFSpecular(brdf, N, fillDir, V) * saturate(dot(N, fillDir)) * fillLight * specScale;
 
-                // ---- 림 라이트 (카메라 기준 역광) ----
-                half3 rimDir = CameraSpaceDirToWorld(_RimDirection.xyz);
-                half rimMask = smoothstep(1.0h - _RimWidth, 1.0h - _RimWidth + _RimSoftness, 1.0h - NdotV);
-                half rimFacing = saturate(dot(N, rimDir) * 0.5h + 0.5h);
-                half3 rimTint = lerp(albedo, half3(1, 1, 1), 0.5h);
-            #if defined(_MATERIALTYPE_SKIN)
-                rimTint = lerp(rimTint, _SubsurfaceColor.rgb, 0.3h);   // 피부 가장자리는 살짝 붉게 비친다
-            #endif
-                color += rimTint * _RimColor.rgb * rimMask * rimFacing * _RimIntensity;
+                if (!specularOnly)
+                {
+                    // ---- 림 라이트 (카메라 기준 역광) ----
+                    half3 rimDir = CameraSpaceDirToWorld(_RimDirection.xyz);
+                    half rimMask = smoothstep(1.0h - _RimWidth, 1.0h - _RimWidth + _RimSoftness, 1.0h - NdotV);
+                    half rimFacing = saturate(dot(N, rimDir) * 0.5h + 0.5h);
+                    half3 rimTint = lerp(albedo, half3(1, 1, 1), 0.5h);
+                #if defined(_MATERIALTYPE_SKIN)
+                    rimTint = lerp(rimTint, _SubsurfaceColor.rgb, 0.3h * _EnableSubsurface);   // 피부 가장자리는 살짝 붉게 비친다
+                #endif
+                    color += rimTint * _RimColor.rgb * rimMask * rimFacing * _RimIntensity * _EnableRimLight;
 
-                // ---- 천: 표면 솜털이 빛을 받아 가장자리가 부드럽게 빛난다 (sheen) ----
-            #if defined(_MATERIALTYPE_CLOTH)
-                half sheen = pow(1.0h - NdotV, _SheenPower) * _SheenIntensity * (1.0h - metallic);
-                color += _SheenColor.rgb * sheen * (mainLight.color * keyShade + ambient);
-            #endif
+                    // ---- 천: 표면 솜털이 빛을 받아 가장자리가 부드럽게 빛난다 (sheen) ----
+                #if defined(_MATERIALTYPE_CLOTH)
+                    half sheen = pow(1.0h - NdotV, _SheenPower) * _SheenIntensity * (1.0h - metallic) * _EnableSheen;
+                    color += _SheenColor.rgb * sheen * (mainLight.color * keyShade + ambient);
+                #endif
 
-                // ---- 보석·유리: 정면에서 볼수록 속이 은은하게 빛난다 ----
-                color += albedo * gem * _GemGlow * (NdotV * NdotV) * (mainLight.color * 0.5h + ambient);
+                    // ---- 보석·유리: 정면에서 볼수록 속이 은은하게 빛난다 ----
+                    color += albedo * gem * _GemGlow * (NdotV * NdotV) * (mainLight.color * 0.5h + ambient);
+
+                    // ---- 스스로 빛나는 부분 (이미시브) ----
+                    color += emission;
+                }
 
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1);
@@ -584,10 +711,13 @@ Shader "ShaderTest/SemiRealInk"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-                // 아웃라인 숨기기: 픽셀을 버려 색도 깊이도 남기지 않는다
-                clip(0.5h - _ShaderTestHideOutline);
+                // 아웃라인 끄기: 픽셀을 버려 색도 깊이도 남기지 않는다.
+                // 맵 하나만 보는 디버그 보기에서도 숨긴다 (보통 화면 0과 "빛만 보기" 7에서만 그린다)
+                int debugView = (int)(_ShaderLabDebugView + 0.5h);
+                clip(_EnableOutline - 0.5h);
+                clip((debugView == 0 || debugView == 7) ? 1.0h : -1.0h);
 
-                half3 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb * _BaseColor.rgb;
+                half3 baseColor = SampleBase(input.uv).rgb;
                 // 먹색에 바탕색을 조금 섞어 번진 먹처럼 보이게 한다
                 half3 ink = lerp(_OutlineColor.rgb, _OutlineColor.rgb * 0.5h + baseColor * 0.35h, _OutlineBaseBlend);
                 half alpha = _OutlineOpacity * lerp(1.0h, 0.55h + 0.45h * input.brush, _OutlineNoiseAmount);
@@ -734,7 +864,7 @@ Shader "ShaderTest/SemiRealInk"
             // 본체 패스와 같은 노멀(노멀맵 + 안쪽 면 뒤집기)을 써야 SSAO 같은 화면 효과가 어긋나지 않는다
             half4 DepthNormalsFrag(Varyings input, FRONT_FACE_TYPE facing : FRONT_FACE_SEMANTIC) : SV_Target
             {
-                half3 normalTS = UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, input.uv), _BumpScale);
+                half3 normalTS = SampleNormalTS(input.uv);
                 float3 bitangent = input.tangentWS.w * cross(input.normalWS, input.tangentWS.xyz);
                 half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent, input.normalWS);
                 half3 n = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tangentToWorld));

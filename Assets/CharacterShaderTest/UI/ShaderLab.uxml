@@ -1,0 +1,32 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="ShaderLab.uss" />
+    <!-- 화면 전체. 빈 곳은 마우스를 통과시켜 카메라 조작이 되게 한다 -->
+    <ui:VisualElement name="root" class="lab-root" picking-mode="Ignore">
+
+        <!-- 와이프·B만 보기: B 화면을 덮는 칸 (이미지는 코드에서 넣는다) -->
+        <ui:VisualElement name="wipe-overlay" class="wipe-overlay" picking-mode="Ignore" />
+        <ui:VisualElement name="wipe-handle" class="wipe-handle">
+            <ui:VisualElement class="wipe-handle__line" picking-mode="Ignore" />
+            <ui:VisualElement class="wipe-handle__grip" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- 화면 위 이름표 -->
+        <ui:Label name="label-a" class="side-label" text="A" picking-mode="Ignore" />
+        <ui:Label name="label-b" class="side-label" text="B" picking-mode="Ignore" />
+
+        <!-- 왼쪽 조작 패널 -->
+        <ui:VisualElement name="side-panel" class="side-panel">
+            <ui:VisualElement class="panel-header">
+                <ui:Label text="SHADER LAB" class="panel-title" />
+                <ui:Label text="세미리얼 먹 쉐이더 테스트" class="panel-subtitle" />
+                <ui:Button name="collapse-button" text="접기 (H)" class="ghost-button" />
+            </ui:VisualElement>
+            <ui:VisualElement name="tab-bar" class="tab-bar" />
+            <ui:ScrollView name="tab-content" class="tab-content" />
+            <ui:Label name="footer" class="panel-footer"
+                      text="왼쪽 드래그 돌리기 · 휠 확대 · 오른쪽 드래그 위아래&#10;1~4 비교 방식 · Tab A↔B · P 후처리 · M 재질 판별 · O 아웃라인 · Space 회전 · F 처음 시점" />
+        </ui:VisualElement>
+
+        <ui:Button name="expand-button" text="SHADER LAB (H)" class="expand-button" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906be5e37956d479d9f617e2e0c9f5, type: 3}
+  m_Name: 3_Noon
+  m_EditorClassIdentifier: Assembly-CSharp::EnvironmentPreset
+  displayName: "\uB9D1\uC740 \uD55C\uB0AE"
+  description: "\uB192\uC774 \uB72C \uAC15\uD55C \uD574, \uD478\uB978 \uD558\uB298 \uD658\uACBD\uAD11, \uC9C4\uD55C \uADF8\uB9BC\uC790. \uAE08\uC18D \uBC18\uC0AC\uC640 \uADF8\uB9BC\uC790 \uACBD\uACC4 \uD655\uC778\uC6A9"
+  skybox: {fileID: 2100000, guid: 59f83609552ffa04ab968608933945bf, type: 2}
+  sunColor: {r: 1, g: 0.96, b: 0.9, a: 1}
+  sunIntensity: 1.9
+  sunAngles: {x: 60, y: 160}
+  shadowStrength: 0.9
+  ambientSky: {r: 0.55, g: 0.65, b: 0.82, a: 1}
+  ambientEquator: {r: 0.5, g: 0.5, b: 0.48, a: 1}
+  ambientGround: {r: 0.34, g: 0.31, b: 0.27, a: 1}
+  fog: 1
+  fogColor: {r: 0.75, g: 0.82, b: 0.9, a: 1}
+  fogDensity: 0.008
+  profile: {fileID: 11400000, guid: c46cb13d19db1e94c8b01cbf654298a1, type: 2}
+  reflection: {fileID: 8900000, guid: 2bbed509d3b33574c88341312929d312, type: 3}
+  propsRoot: Env_Outdoor

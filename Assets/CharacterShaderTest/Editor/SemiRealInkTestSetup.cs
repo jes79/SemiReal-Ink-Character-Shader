@@ -1,19 +1,26 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 // 메뉴
 //  Tools > Shader Test > Build Test Scene
-//      장면을 다시 만든다. 머티리얼·후처리에서 조정한 값은 그대로 둔다
+//      장면을 다시 만든다. 머티리얼·후처리·프리셋에서 조정한 값은 그대로 둔다
 //      (아직 프리셋을 한 번도 받지 않은 머티리얼만 프리셋을 넣는다)
 //  Tools > Shader Test > Reset Materials And Post To Presets
-//      모든 새 쉐이더 머티리얼과 후처리 프로필을 프리셋 값으로 되돌린 뒤 장면을 만든다
+//      모든 새 쉐이더 머티리얼, 후처리 프로필, 스타일·환경 프리셋을 기본값으로 되돌린 뒤 장면을 만든다
 //
-// 장면: 얼어붙은 세상(차가운 하늘·눈 바닥·얼음판·눈발·차가운 색보정)
-//       원본(URP Lit)과 새 쉐이더 캐릭터를 같은 자리에 겹쳐 두고, 레이어로 나눠 비교 카메라 두 대로 본다
+// 장면: 쉐이더 랩
+//  - 원본(URP Lit)과 새 쉐이더 캐릭터를 같은 자리에 겹쳐 두고, 레이어로 나눠 카메라 두 대로 A/B 비교
+//  - 환경 5종(얼어붙은 세상·스튜디오·한낮·노을·달밤), 조명 프리셋, 스타일 프리셋 3종(리얼·세미리얼·스타일라이즈드)
+//  - UI Toolkit 조작 패널
 public static class SemiRealInkTestSetup
 {
     const string Root = "Assets/CharacterShaderTest";
@@ -22,10 +29,10 @@ public static class SemiRealInkTestSetup
     const string TargetMaterialDir = Root + "/Materials/FinalPlayer_SemiRealInk";
     const string EnvironmentMaterialDir = Root + "/Materials/Environment";
     const string SettingsDir = Root + "/Settings";
-    const string VolumeProfilePath = SettingsDir + "/FrozenWorld_Volume.asset";
-    const string ReflectionPath = SettingsDir + "/FrozenWorld_Reflection.exr";
+    const string StyleDir = SettingsDir + "/Styles";
+    const string EnvironmentDir = SettingsDir + "/Environments";
+    const string UiDir = Root + "/UI";
     const string ScenePath = Root + "/Scenes/CharacterShaderTest.unity";
-    const string ShaderName = "ShaderTest/SemiRealInk";
     const string OriginalLayer = "ShaderCompare_Original";
     const string NewLayer = "ShaderCompare_New";
 
@@ -41,16 +48,19 @@ public static class SemiRealInkTestSetup
     static void BuildWithReset()
     {
         if (EditorUtility.DisplayDialog("프리셋으로 되돌리기",
-                "새 쉐이더 머티리얼과 후처리에서 조정한 값이 모두 프리셋 값으로 바뀝니다. 계속할까요?", "되돌리기", "취소"))
+                "새 쉐이더 머티리얼, 후처리, 스타일·환경 프리셋에서 조정한 값이 모두 기본값으로 바뀝니다. 계속할까요?", "되돌리기", "취소"))
             Build(resetAssets: true);
     }
 
-    static void Build(bool resetAssets)
+    // 배치 모드용: Unity.exe -batchmode -executeMethod SemiRealInkTestSetup.BuildFromCommandLine
+    public static void BuildFromCommandLine() => Build(resetAssets: false, interactive: false);
+
+    static void Build(bool resetAssets, bool interactive = true)
     {
-        var shader = Shader.Find(ShaderName);
+        var shader = Shader.Find(ShaderLabProperties.ShaderName);
         if (shader == null)
         {
-            Debug.LogError($"쉐이더 '{ShaderName}'를 찾지 못했습니다. 쉐이더 컴파일 에러를 먼저 확인하세요.");
+            Debug.LogError($"쉐이더 '{ShaderLabProperties.ShaderName}'를 찾지 못했습니다. 쉐이더 컴파일 에러를 먼저 확인하세요.");
             return;
         }
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
@@ -59,26 +69,29 @@ public static class SemiRealInkTestSetup
             Debug.LogError($"모델을 찾지 못했습니다: {ModelPath}");
             return;
         }
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        if (interactive && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
         EnsureFolder(TargetMaterialDir);
         EnsureFolder(EnvironmentMaterialDir);
-        EnsureFolder(SettingsDir);
+        EnsureFolder(StyleDir);
+        EnsureFolder(EnvironmentDir);
+        EnsureFolder(UiDir);
 
         int originalLayer = EnsureLayer(OriginalLayer);
         int newLayer = EnsureLayer(NewLayer);
         var remap = CreateMaterials(shader, resetAssets);
-        var profile = CreateVolumeProfile(resetAssets);
-        BuildScene(model, remap, profile, originalLayer, newLayer);
+        var styles = CreateStylePresets(resetAssets);
+        var environments = CreateEnvironmentPresets(resetAssets);
+        BuildScene(model, remap, styles, environments, originalLayer, newLayer);
     }
 
     // ------------------------------------------------------------------
     // 머티리얼
     // ------------------------------------------------------------------
-    static System.Collections.Generic.Dictionary<Material, Material> CreateMaterials(Shader shader, bool reset)
+    static Dictionary<Material, Material> CreateMaterials(Shader shader, bool reset)
     {
-        var remap = new System.Collections.Generic.Dictionary<Material, Material>();
+        var remap = new Dictionary<Material, Material>();
         foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { SourceMaterialDir }))
         {
             var sourcePath = AssetDatabase.GUIDToAssetPath(guid);
@@ -110,6 +123,7 @@ public static class SemiRealInkTestSetup
         return remap;
     }
 
+    // 원본(URP Lit) 머티리얼의 텍스처를 옮긴다. 메탈릭·AO·이미시브 맵이 있으면 그것도 켠다
     static void CopyTextures(Material source, Material target)
     {
         if (source.HasTexture("_BaseMap"))
@@ -124,6 +138,33 @@ public static class SemiRealInkTestSetup
             target.SetFloat("_BumpScale", source.GetFloat("_BumpScale"));
         if (source.HasColor("_BaseColor"))
             target.SetColor("_BaseColor", source.GetColor("_BaseColor"));
+
+        // URP Lit의 메탈릭 맵: R = 메탈릭, A = 스무스니스
+        var metallicGloss = source.HasTexture("_MetallicGlossMap") ? source.GetTexture("_MetallicGlossMap") : null;
+        if (metallicGloss != null)
+        {
+            target.SetTexture("_MetallicMap", metallicGloss);
+            target.SetFloat("_MetallicChannel", 0f);
+            target.SetFloat("_UseMetallicMap", 1f);
+            target.SetTexture("_RoughnessMap", metallicGloss);
+            target.SetFloat("_RoughnessChannel", 3f);
+            target.SetFloat("_RoughnessIsSmoothness", 1f);
+            target.SetFloat("_UseRoughnessMap", 1f);
+        }
+        var occlusion = source.HasTexture("_OcclusionMap") ? source.GetTexture("_OcclusionMap") : null;
+        if (occlusion != null)
+        {
+            target.SetTexture("_OcclusionMap", occlusion);
+            target.SetFloat("_OcclusionChannel", 1f);   // URP Lit은 G 채널을 읽는다
+            target.SetFloat("_UseOcclusionMap", 1f);
+        }
+        var emission = source.HasTexture("_EmissionMap") ? source.GetTexture("_EmissionMap") : null;
+        if (emission != null && source.IsKeywordEnabled("_EMISSION"))
+        {
+            target.SetTexture("_EmissionMap", emission);
+            target.SetColor("_EmissionColor", source.GetColor("_EmissionColor"));
+            target.SetFloat("_UseEmissionMap", 1f);
+        }
     }
 
     // 굽어 둔 마스크 맵(Textures/FinalPlayer/Masks/<베이스 텍스처 이름>_Mask.png)이 있으면 연결한다
@@ -249,51 +290,257 @@ public static class SemiRealInkTestSetup
     }
 
     // ------------------------------------------------------------------
-    // 후처리: 차갑고 맑은 겨울 공기
+    // 스타일 프리셋: 리얼 / 세미리얼 / 스타일라이즈드
     // ------------------------------------------------------------------
-    static VolumeProfile CreateVolumeProfile(bool reset)
+    static List<StylePreset> CreateStylePresets(bool reset)
     {
-        var existing = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
+        var real = CreateOrLoadAsset<StylePreset>($"{StyleDir}/1_Real.asset", reset, p =>
+        {
+            p.displayName = "리얼";
+            p.description = "물리 기반 조명만: 실사 명암, 보조광·역광·그늘 색·외곽선 없음. URP Lit과 가장 비슷하다";
+            p.realism = new StylePreset.FloatOverride(1f);
+            p.fillLight = StylePreset.Switch.Off;
+            p.rimLight = StylePreset.Switch.Off;
+            p.shadowTint = StylePreset.Switch.Off;
+            p.outline = StylePreset.Switch.Off;
+        });
+        var semiReal = CreateOrLoadAsset<StylePreset>($"{StyleDir}/2_SemiReal.asset", reset, p =>
+        {
+            p.displayName = "세미리얼";
+            p.description = "머티리얼마다 맞춘 기본값 그대로: 실사에 가까운 명암 + 약한 보조광·역광 + 먹 아웃라인";
+        });
+        var stylized = CreateOrLoadAsset<StylePreset>($"{StyleDir}/3_Stylized.asset", reset, p =>
+        {
+            p.displayName = "스타일라이즈드";
+            p.description = "또렷한 2단 명암, 강한 역광 테두리, 굵은 먹 선. 반사는 줄여 그림처럼";
+            p.realism = new StylePreset.FloatOverride(0f);
+            p.shadeSoftness = new StylePreset.FloatOverride(0.05f);
+            p.shadeOffset = new StylePreset.FloatOverride(0.05f);
+            p.ambientStrength = new StylePreset.FloatOverride(1.1f);
+            p.specularStrength = new StylePreset.FloatOverride(0.5f);
+            p.reflectionStrength = new StylePreset.FloatOverride(0.5f);
+            p.fillIntensity = new StylePreset.FloatOverride(0.5f);
+            p.rimIntensity = new StylePreset.FloatOverride(1.5f);
+            p.rimWidth = new StylePreset.FloatOverride(0.3f);
+            p.rimSoftness = new StylePreset.FloatOverride(0.05f);
+            p.outlineWidth = new StylePreset.FloatOverride(2.6f);
+            p.outlineOpacity = new StylePreset.FloatOverride(0.95f);
+            p.outlineNoiseAmount = new StylePreset.FloatOverride(0.35f);
+            p.fillLight = StylePreset.Switch.On;
+            p.rimLight = StylePreset.Switch.On;
+            p.shadowTint = StylePreset.Switch.On;
+            p.outline = StylePreset.Switch.On;
+        });
+        return new List<StylePreset> { real, semiReal, stylized };
+    }
+
+    // ------------------------------------------------------------------
+    // 환경 프리셋: 하늘·햇빛·환경광·안개·후처리 (반사는 장면을 만든 뒤 굽는다)
+    // ------------------------------------------------------------------
+    const string FrozenProps = "Env_FrozenWorld";
+    const string StudioProps = "Env_Studio";
+    const string OutdoorProps = "Env_Outdoor";
+
+    static List<EnvironmentPreset> CreateEnvironmentPresets(bool reset)
+    {
+        var list = new List<EnvironmentPreset>();
+
+        list.Add(CreateOrLoadAsset<EnvironmentPreset>($"{EnvironmentDir}/1_FrozenWorld.asset", reset, e =>
+        {
+            e.displayName = "얼어붙은 세상";
+            e.description = "차가운 겨울 해, 눈 바닥·얼음판, 푸른 그늘. 피부의 붉은 혈색만 따뜻하게 남는다";
+            e.skybox = ProceduralSky("FrozenSky", 0.9f, new Color(0.72f, 0.79f, 0.88f), new Color(0.85f, 0.88f, 0.93f), 1.25f);
+            e.sunColor = new Color(0.86f, 0.92f, 1f);
+            e.sunIntensity = 1.5f;
+            e.sunAngles = new Vector2(28f, 150f);
+            e.shadowStrength = 0.85f;
+            e.ambientSky = new Color(0.55f, 0.66f, 0.85f);
+            e.ambientEquator = new Color(0.47f, 0.54f, 0.64f);
+            e.ambientGround = new Color(0.58f, 0.63f, 0.72f);   // 눈에 반사된 빛
+            e.fog = true;
+            e.fogColor = new Color(0.7f, 0.78f, 0.88f);
+            e.fogDensity = 0.035f;
+            e.propsRoot = FrozenProps;
+        }));
+        list[^1].profile = CreateProfile("FrozenWorld_Volume", reset, p =>
+        {
+            p.Add<Tonemapping>().mode.Override(TonemappingMode.Neutral);   // 재질 색을 덜 비틀어 비교하기 좋다
+            var white = p.Add<WhiteBalance>();
+            white.temperature.Override(-22f);   // 차갑게
+            white.tint.Override(3f);
+            var color = p.Add<ColorAdjustments>();
+            color.postExposure.Override(0.2f);
+            color.contrast.Override(12f);
+            color.saturation.Override(-10f);    // 얼어붙은 공기: 채도를 살짝 뺀다
+            color.colorFilter.Override(new Color(0.93f, 0.97f, 1f));
+            var smh = p.Add<ShadowsMidtonesHighlights>();
+            smh.shadows.Override(new Vector4(0.9f, 0.97f, 1.15f, 0f));   // 어두운 곳은 푸르게
+            smh.highlights.Override(new Vector4(1f, 1f, 1.03f, 0f));
+            AddBloom(p, 0.9f, 0.6f, new Color(0.85f, 0.93f, 1f));       // 금속·눈 반짝임
+            AddVignette(p, 0.25f, new Color(0.04f, 0.07f, 0.12f));
+            AddGrain(p, 0.12f);
+        });
+
+        list.Add(CreateOrLoadAsset<EnvironmentPreset>($"{EnvironmentDir}/2_Studio.asset", reset, e =>
+        {
+            e.displayName = "중립 스튜디오";
+            e.description = "어두운 배경·흰 빛·후처리는 톤매핑만. 쉐이더 자체를 평가할 때 쓰는 기준 환경";
+            e.skybox = ProceduralSky("StudioSky", 0.3f, new Color(0.5f, 0.5f, 0.5f), new Color(0.22f, 0.22f, 0.23f), 0.35f);
+            e.sunColor = Color.white;
+            e.sunIntensity = 1.3f;
+            e.sunAngles = new Vector2(40f, 145f);
+            e.shadowStrength = 0.7f;
+            e.ambientSky = new Color(0.46f, 0.46f, 0.48f);
+            e.ambientEquator = new Color(0.38f, 0.38f, 0.38f);
+            e.ambientGround = new Color(0.26f, 0.26f, 0.26f);
+            e.fog = false;
+            e.propsRoot = StudioProps;
+        }));
+        list[^1].profile = CreateProfile("Studio_Volume", reset, p =>
+        {
+            p.Add<Tonemapping>().mode.Override(TonemappingMode.Neutral);
+            p.Add<ColorAdjustments>().postExposure.Override(0f);
+        });
+
+        list.Add(CreateOrLoadAsset<EnvironmentPreset>($"{EnvironmentDir}/3_Noon.asset", reset, e =>
+        {
+            e.displayName = "맑은 한낮";
+            e.description = "높이 뜬 강한 해, 푸른 하늘 환경광, 진한 그림자. 금속 반사와 그림자 경계 확인용";
+            e.skybox = ProceduralSky("NoonSky", 1f, new Color(0.5f, 0.55f, 0.65f), new Color(0.45f, 0.42f, 0.38f), 1.3f);
+            e.sunColor = new Color(1f, 0.96f, 0.9f);
+            e.sunIntensity = 1.9f;
+            e.sunAngles = new Vector2(60f, 160f);
+            e.shadowStrength = 0.9f;
+            e.ambientSky = new Color(0.55f, 0.65f, 0.82f);
+            e.ambientEquator = new Color(0.5f, 0.5f, 0.48f);
+            e.ambientGround = new Color(0.34f, 0.31f, 0.27f);
+            e.fog = true;
+            e.fogColor = new Color(0.75f, 0.82f, 0.9f);
+            e.fogDensity = 0.008f;
+            e.propsRoot = OutdoorProps;
+        }));
+        list[^1].profile = CreateProfile("Noon_Volume", reset, p =>
+        {
+            p.Add<Tonemapping>().mode.Override(TonemappingMode.ACES);
+            var color = p.Add<ColorAdjustments>();
+            color.contrast.Override(5f);
+            color.saturation.Override(8f);
+            AddBloom(p, 1f, 0.4f, Color.white);
+            AddVignette(p, 0.15f, Color.black);
+        });
+
+        list.Add(CreateOrLoadAsset<EnvironmentPreset>($"{EnvironmentDir}/4_Sunset.asset", reset, e =>
+        {
+            e.displayName = "노을";
+            e.description = "낮게 깔린 주황빛 해와 보랏빛 그늘. 따뜻한 빛과 차가운 그늘이 섞일 때 피부·천 확인";
+            e.skybox = ProceduralSky("SunsetSky", 1.6f, new Color(0.6f, 0.45f, 0.45f), new Color(0.3f, 0.24f, 0.22f), 1.1f);
+            e.sunColor = new Color(1f, 0.62f, 0.36f);
+            e.sunIntensity = 1.5f;
+            e.sunAngles = new Vector2(8f, 125f);
+            e.shadowStrength = 0.8f;
+            e.ambientSky = new Color(0.42f, 0.38f, 0.55f);
+            e.ambientEquator = new Color(0.62f, 0.43f, 0.33f);
+            e.ambientGround = new Color(0.24f, 0.19f, 0.17f);
+            e.fog = true;
+            e.fogColor = new Color(0.78f, 0.55f, 0.42f);
+            e.fogDensity = 0.015f;
+            e.propsRoot = OutdoorProps;
+        }));
+        list[^1].profile = CreateProfile("Sunset_Volume", reset, p =>
+        {
+            p.Add<Tonemapping>().mode.Override(TonemappingMode.ACES);
+            p.Add<WhiteBalance>().temperature.Override(18f);
+            var color = p.Add<ColorAdjustments>();
+            color.contrast.Override(8f);
+            color.saturation.Override(10f);
+            AddBloom(p, 0.85f, 0.8f, new Color(1f, 0.8f, 0.6f));
+            AddVignette(p, 0.3f, new Color(0.12f, 0.05f, 0.08f));
+        });
+
+        list.Add(CreateOrLoadAsset<EnvironmentPreset>($"{EnvironmentDir}/5_Night.asset", reset, e =>
+        {
+            e.displayName = "달밤";
+            e.description = "푸른 달빛과 어두운 환경광. '3점 조명 + 포인트' 조명과 함께 쓰면 횃불 같은 따뜻한 빛이 더해진다";
+            e.skybox = ProceduralSky("NightSky", 0.6f, new Color(0.2f, 0.25f, 0.4f), new Color(0.05f, 0.05f, 0.07f), 0.15f);
+            e.sunColor = new Color(0.55f, 0.65f, 1f);
+            e.sunIntensity = 0.45f;
+            e.sunAngles = new Vector2(45f, 200f);
+            e.shadowStrength = 0.7f;
+            e.ambientSky = new Color(0.08f, 0.1f, 0.18f);
+            e.ambientEquator = new Color(0.06f, 0.07f, 0.1f);
+            e.ambientGround = new Color(0.04f, 0.04f, 0.05f);
+            e.fog = true;
+            e.fogColor = new Color(0.05f, 0.07f, 0.12f);
+            e.fogDensity = 0.03f;
+            e.propsRoot = OutdoorProps;
+        }));
+        list[^1].profile = CreateProfile("Night_Volume", reset, p =>
+        {
+            p.Add<Tonemapping>().mode.Override(TonemappingMode.Neutral);
+            p.Add<WhiteBalance>().temperature.Override(-15f);
+            var color = p.Add<ColorAdjustments>();
+            color.postExposure.Override(0.4f);
+            color.saturation.Override(-25f);
+            AddBloom(p, 0.8f, 1f, new Color(1f, 0.85f, 0.7f));
+            AddVignette(p, 0.35f, Color.black);
+            AddGrain(p, 0.25f);
+        });
+
+        foreach (var e in list)
+            EditorUtility.SetDirty(e);
+        AssetDatabase.SaveAssets();
+        return list;
+    }
+
+    static Material ProceduralSky(string name, float atmosphere, Color tint, Color ground, float exposure)
+    {
+        var sky = CreateOrLoadMaterial($"{EnvironmentMaterialDir}/{name}.mat", "Skybox/Procedural");
+        sky.SetFloat("_SunSize", 0.03f);
+        sky.SetFloat("_SunSizeConvergence", 8f);
+        sky.SetFloat("_AtmosphereThickness", atmosphere);
+        sky.SetColor("_SkyTint", tint);
+        sky.SetColor("_GroundColor", ground);
+        sky.SetFloat("_Exposure", exposure);
+        EditorUtility.SetDirty(sky);
+        return sky;
+    }
+
+    static void AddBloom(VolumeProfile p, float threshold, float intensity, Color tint)
+    {
+        var bloom = p.Add<Bloom>();
+        bloom.threshold.Override(threshold);
+        bloom.intensity.Override(intensity);
+        bloom.scatter.Override(0.65f);
+        bloom.tint.Override(tint);
+    }
+
+    static void AddVignette(VolumeProfile p, float intensity, Color color)
+    {
+        var vignette = p.Add<Vignette>();
+        vignette.intensity.Override(intensity);
+        vignette.smoothness.Override(0.45f);
+        vignette.color.Override(color);
+    }
+
+    static void AddGrain(VolumeProfile p, float intensity)
+    {
+        var grain = p.Add<FilmGrain>();
+        grain.type.Override(FilmGrainLookup.Thin1);
+        grain.intensity.Override(intensity);
+    }
+
+    static VolumeProfile CreateProfile(string name, bool reset, Action<VolumeProfile> fill)
+    {
+        var path = $"{SettingsDir}/{name}.asset";
+        var existing = AssetDatabase.LoadAssetAtPath<VolumeProfile>(path);
         if (existing != null && !reset)
             return existing;
         if (existing != null)
-            AssetDatabase.DeleteAsset(VolumeProfilePath);
+            AssetDatabase.DeleteAsset(path);
 
         var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-        AssetDatabase.CreateAsset(profile, VolumeProfilePath);
-
-        var tone = profile.Add<Tonemapping>();
-        tone.mode.Override(TonemappingMode.Neutral);   // 재질 색을 덜 비틀어 비교하기 좋다
-
-        var white = profile.Add<WhiteBalance>();
-        white.temperature.Override(-22f);   // 차갑게
-        white.tint.Override(3f);
-
-        var color = profile.Add<ColorAdjustments>();
-        color.postExposure.Override(0.2f);
-        color.contrast.Override(12f);
-        color.saturation.Override(-10f);    // 얼어붙은 공기: 채도를 살짝 뺀다
-        color.colorFilter.Override(new Color(0.93f, 0.97f, 1f));
-
-        var smh = profile.Add<ShadowsMidtonesHighlights>();
-        smh.shadows.Override(new Vector4(0.9f, 0.97f, 1.15f, 0f));   // 어두운 곳은 푸르게
-        smh.highlights.Override(new Vector4(1f, 1f, 1.03f, 0f));
-
-        var bloom = profile.Add<Bloom>();
-        bloom.threshold.Override(0.9f);
-        bloom.intensity.Override(0.6f);     // 금속·눈 반짝임
-        bloom.scatter.Override(0.65f);
-        bloom.tint.Override(new Color(0.85f, 0.93f, 1f));
-
-        var vignette = profile.Add<Vignette>();
-        vignette.intensity.Override(0.25f);
-        vignette.smoothness.Override(0.45f);
-        vignette.color.Override(new Color(0.04f, 0.07f, 0.12f));
-
-        var grain = profile.Add<FilmGrain>();
-        grain.type.Override(FilmGrainLookup.Thin1);
-        grain.intensity.Override(0.12f);
-
+        AssetDatabase.CreateAsset(profile, path);
+        fill(profile);
         foreach (var component in profile.components)
             AssetDatabase.AddObjectToAsset(component, profile);
         EditorUtility.SetDirty(profile);
@@ -304,104 +551,58 @@ public static class SemiRealInkTestSetup
     // ------------------------------------------------------------------
     // 장면
     // ------------------------------------------------------------------
-    static void BuildScene(GameObject model, System.Collections.Generic.Dictionary<Material, Material> remap,
-        VolumeProfile profile, int originalLayer, int newLayer)
+    static void BuildScene(GameObject model, Dictionary<Material, Material> remap, List<StylePreset> styles,
+        List<EnvironmentPreset> environments, int originalLayer, int newLayer)
     {
+        // 새 장면을 열면 쓰이지 않는 에셋이 메모리에서 내려가 C# 변수가 '없는 객체'가 된다 → 경로를 적어 두었다가 다시 읽는다
+        var modelPath = AssetDatabase.GetAssetPath(model);
+        var remapPaths = remap.Select(p => (AssetDatabase.GetAssetPath(p.Key), AssetDatabase.GetAssetPath(p.Value))).ToList();
+        var stylePaths = styles.Select(AssetDatabase.GetAssetPath).ToList();
+        var environmentPaths = environments.Select(AssetDatabase.GetAssetPath).ToList();
+
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        // ---- 캐릭터: 같은 자리에 겹치고 레이어로 나눈다 ----
-        var original = (GameObject)PrefabUtility.InstantiatePrefab(model);
-        original.name = "FinalPlayer_Original (URP Lit)";
-        SetLayerRecursively(original, originalLayer);
+        model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
+        remap = remapPaths.ToDictionary(p => AssetDatabase.LoadAssetAtPath<Material>(p.Item1), p => AssetDatabase.LoadAssetAtPath<Material>(p.Item2));
+        styles = stylePaths.Select(AssetDatabase.LoadAssetAtPath<StylePreset>).ToList();
+        environments = environmentPaths.Select(AssetDatabase.LoadAssetAtPath<EnvironmentPreset>).ToList();
 
-        var stylized = (GameObject)PrefabUtility.InstantiatePrefab(model);
-        stylized.name = "FinalPlayer_SemiRealInk";
-        SetLayerRecursively(stylized, newLayer);
-        foreach (var renderer in stylized.GetComponentsInChildren<Renderer>())
-        {
-            var mats = renderer.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++)
-                if (mats[i] != null && remap.TryGetValue(mats[i], out var replaced))
-                    mats[i] = replaced;
-            renderer.sharedMaterials = mats;
-        }
+        // ---- 캐릭터: 같은 자리에 겹치고 레이어로 나눈다 (A = 메인 카메라, B = 비교 카메라) ----
+        var characterA = CreateCharacter(model, "Character A (FinalPlayer)", originalLayer, remap, startWithLab: false);
+        var characterB = CreateCharacter(model, "Character B (FinalPlayer)", newLayer, remap, startWithLab: true);
         int characterMask = (1 << originalLayer) | (1 << newLayer);
 
-        // 모델 기준점이 몸 가운데라서, 발이 눈 바닥(y = 0)에 닿도록 두 캐릭터를 함께 올린다
-        var bounds = GetBounds(original);
+        // 모델 기준점이 몸 가운데라서, 발이 바닥(y = 0)에 닿도록 두 캐릭터를 함께 올린다
+        var bounds = characterA.GetBounds();
         float height = Mathf.Max(bounds.size.y, 0.1f);
         var lift = new Vector3(0f, -bounds.min.y, 0f);
-        original.transform.position += lift;
-        stylized.transform.position += lift;
+        characterA.transform.position += lift;
+        characterB.transform.position += lift;
 
-        // ---- 햇빛: 낮게 뜬 차가운 겨울 해 ----
-        var lightGo = new GameObject("Winter Sun");
-        var light = lightGo.AddComponent<Light>();
-        light.type = LightType.Directional;
-        light.color = new Color(0.86f, 0.92f, 1f);
-        light.intensity = 1.5f;
-        light.shadows = LightShadows.Soft;
-        light.shadowStrength = 0.85f;
-        lightGo.transform.rotation = Quaternion.Euler(28f, 150f, 0f);   // 카메라 기준 오른쪽 위 앞 (캐릭터 정면 = +Z)
+        // ---- 햇빛 (환경 프리셋이 색·세기·방향을 정한다) ----
+        var lightGo = new GameObject("Sun");
+        var sun = lightGo.AddComponent<Light>();
+        sun.type = LightType.Directional;
+        sun.shadows = LightShadows.Soft;
+        RenderSettings.sun = sun;
 
-        // ---- 하늘·환경광·안개 ----
-        var sky = CreateOrLoadMaterial(EnvironmentMaterialDir + "/FrozenSky.mat", "Skybox/Procedural");
-        sky.SetFloat("_SunSize", 0.03f);
-        sky.SetFloat("_SunSizeConvergence", 8f);
-        sky.SetFloat("_AtmosphereThickness", 0.9f);
-        sky.SetColor("_SkyTint", new Color(0.72f, 0.79f, 0.88f));   // 옅고 차가운 겨울 하늘
-        sky.SetColor("_GroundColor", new Color(0.85f, 0.88f, 0.93f));
-        sky.SetFloat("_Exposure", 1.25f);
-        RenderSettings.skybox = sky;
-        RenderSettings.sun = light;
-        RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.55f, 0.66f, 0.85f);
-        RenderSettings.ambientEquatorColor = new Color(0.47f, 0.54f, 0.64f);
-        RenderSettings.ambientGroundColor = new Color(0.58f, 0.63f, 0.72f);   // 눈에 반사된 빛
-        RenderSettings.fog = true;
-        RenderSettings.fogMode = FogMode.ExponentialSquared;
-        RenderSettings.fogDensity = 0.035f;
-        RenderSettings.fogColor = new Color(0.7f, 0.78f, 0.88f);
+        // ---- 보조 포인트 라이트 (조명 프리셋 '3점 조명 + 포인트'에서 켠다) ----
+        var accentRoot = new GameObject("Accent Lights");
+        var warm = CreatePointLight(accentRoot.transform, "Warm Key (Torch)", new Vector3(1.1f, height * 0.75f, 1.0f), new Color(1f, 0.65f, 0.35f), 2.5f, height * 2.5f);
+        var cool = CreatePointLight(accentRoot.transform, "Cool Rim", new Vector3(-0.9f, height * 0.9f, -1.1f), new Color(0.5f, 0.7f, 1f), 3f, height * 2.5f);
 
-        // ---- 눈 바닥 + 발밑 얼음판 ----
-        var snow = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Snow.mat", "Universal Render Pipeline/Lit");
-        snow.SetColor("_BaseColor", new Color(0.86f, 0.9f, 0.95f));
-        snow.SetFloat("_Smoothness", 0.35f);
-        var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "Snow Ground";
-        ground.transform.localScale = Vector3.one * 3f;
-        ground.GetComponent<Renderer>().sharedMaterial = snow;
-
-        var ice = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Ice.mat", "Universal Render Pipeline/Lit");
-        ice.SetColor("_BaseColor", new Color(0.74f, 0.83f, 0.9f));   // 옅은 얼음색 (진하면 플라스틱처럼 보인다)
-        ice.SetFloat("_Smoothness", 0.92f);
-        var icePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        icePlate.name = "Ice Plate";
-        icePlate.transform.position = new Vector3(0f, -0.01f, 0f);
-        icePlate.transform.localScale = new Vector3(2.2f, 0.02f, 2.2f);
-        icePlate.GetComponent<Renderer>().sharedMaterial = ice;
-        Object.DestroyImmediate(icePlate.GetComponent<Collider>());
-
-        // 반사 프로브에 찍히도록 배경은 static
-        GameObjectUtility.SetStaticEditorFlags(ground, StaticEditorFlags.ReflectionProbeStatic);
-        GameObjectUtility.SetStaticEditorFlags(icePlate, StaticEditorFlags.ReflectionProbeStatic);
-
-        // ---- 눈발 ----
-        CreateSnowfall();
-
-        // 위에서 바꾼 하늘·눈·얼음·눈송이 머티리얼 값을 파일에 저장 (반사 프로브를 굽기 전에)
-        EditorUtility.SetDirty(sky);
-        EditorUtility.SetDirty(snow);
-        EditorUtility.SetDirty(ice);
+        // ---- 배경 소품 (환경마다 하나씩 켠다) ----
+        CreateFrozenProps();
+        CreateStudioProps();
+        CreateOutdoorProps();
         AssetDatabase.SaveAssets();
 
         // ---- 후처리 볼륨 ----
-        var volumeGo = new GameObject("Global Volume (Frozen World)");
+        var volumeGo = new GameObject("Global Volume");
         var volume = volumeGo.AddComponent<Volume>();
         volume.isGlobal = true;
-        volume.sharedProfile = profile;
 
-        // ---- 카메라: 메인 = 원본, 자식 = 새 쉐이더 ----
+        // ---- 카메라: 메인 = A, 자식 = B ----
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";
         var cam = camGo.AddComponent<Camera>();
@@ -411,44 +612,208 @@ public static class SemiRealInkTestSetup
         camGo.AddComponent<AudioListener>();
         cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
 
-        var compareGo = new GameObject("Compare Camera (New Shader)");
+        var compareGo = new GameObject("Compare Camera (B)");
         compareGo.transform.SetParent(camGo.transform, false);
         var compareCam = compareGo.AddComponent<Camera>();
         compareCam.clearFlags = CameraClearFlags.Skybox;
         compareCam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
 
-        // 캐릭터를 올린 뒤라 발 = y 0
         var lookAt = new Vector3(0f, height * 0.55f, 0f);
         camGo.transform.position = lookAt + new Vector3(0f, height * 0.05f, height * 1.5f);
         camGo.transform.LookAt(lookAt);
 
-        var viewer = camGo.AddComponent<CharacterCompareViewer>();
-        viewer.target = stylized.transform;
-        viewer.compareCamera = compareCam;
-        viewer.keyLight = light;
-        viewer.originalLayerName = OriginalLayer;
-        viewer.newLayerName = NewLayer;
+        var orbit = camGo.AddComponent<OrbitCamera>();
+        orbit.target = characterB.transform;
+        var compare = camGo.AddComponent<CompareView>();
+        compare.compareCamera = compareCam;
+        compare.layerA = OriginalLayer;
+        compare.layerB = NewLayer;
 
-        // ---- 반사 프로브: 하늘·눈·얼음을 금속·보석에 비춘다 (캐릭터는 제외) ----
-        var probeGo = new GameObject("Reflection Probe (Frozen World)");
+        // ---- 반사 프로브: 하늘·바닥을 금속·보석에 비춘다 (캐릭터는 제외). 환경마다 구워 둔다 ----
+        var probeGo = new GameObject("Reflection Probe");
         probeGo.transform.position = new Vector3(0f, height * 0.6f, 0f);
         var probe = probeGo.AddComponent<ReflectionProbe>();
-        probe.mode = ReflectionProbeMode.Baked;
+        probe.mode = ReflectionProbeMode.Custom;
         probe.size = new Vector3(40f, 20f, 40f);
         probe.cullingMask = ~characterMask;
         probe.hdr = true;
 
+        // ---- 쉐이더 랩 (상태 관리 + UI) ----
+        var labGo = new GameObject("Shader Lab");
+        var lab = labGo.AddComponent<ShaderLabController>();
+        lab.characterA = characterA;
+        lab.characterB = characterB;
+        lab.compareView = compare;
+        lab.orbitCamera = orbit;
+        lab.sun = sun;
+        lab.volume = volume;
+        lab.reflectionProbe = probe;
+        lab.accentLights = new List<Light> { warm, cool };
+        lab.styles = styles;
+        lab.defaultStyleB = 1;   // 세미리얼
+        lab.environments = environments;
+        lab.lightingPresets = CreateLightingPresets();
+
+        var doc = labGo.AddComponent<UIDocument>();
+        doc.panelSettings = CreatePanelSettings();
+        doc.visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>($"{UiDir}/ShaderLab.uxml");
+        var ui = labGo.AddComponent<ShaderLabUI>();
+        ui.lab = lab;
+
         EditorSceneManager.SaveScene(scene, ScenePath);
-        DynamicGI.UpdateEnvironment();
-        if (!Lightmapping.BakeReflectionProbe(probe, ReflectionPath))
-            Debug.LogWarning("반사 프로브 굽기에 실패했습니다. 금속 반사가 하늘만 비칠 수 있습니다.");
+        BakeEnvironmentReflections(environments, sun, probe);
+        // 처음 열었을 때 첫 환경이 보이게
+        PreviewEnvironment(environments[0], sun, volume);
+        EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, ScenePath);
 
-        Selection.activeGameObject = stylized;
-        Debug.Log($"테스트 장면 생성 완료: {ScenePath} (새 쉐이더 머티리얼 {remap.Count}개). 플레이(▶)를 눌러 비교하세요.");
+        Selection.activeGameObject = characterB.gameObject;
+        Debug.Log($"쉐이더 랩 장면 생성 완료: {ScenePath} (새 쉐이더 머티리얼 {remap.Count}개, 환경 {environments.Count}개). 플레이(▶)를 누르세요.");
     }
 
-    static void CreateSnowfall()
+    static LabCharacter CreateCharacter(GameObject model, string name, int layer, Dictionary<Material, Material> remap, bool startWithLab)
+    {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(model);
+        go.name = name;
+        SetLayerRecursively(go, layer);
+
+        var character = go.AddComponent<LabCharacter>();
+        foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
+        {
+            var lit = renderer.sharedMaterials;
+            var lab = lit.Select(m => m != null && remap.TryGetValue(m, out var r) ? r : m).ToArray();
+            character.renderers.Add(new LabCharacter.RendererMaterials { renderer = renderer, lit = lit, lab = lab });
+            if (startWithLab)
+                renderer.sharedMaterials = lab;
+        }
+
+        character.animator = go.GetComponent<Animator>();
+        if (character.animator == null)
+            character.animator = go.AddComponent<Animator>();
+        character.animator.applyRootMotion = false;
+        character.clips = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(model))
+            .OfType<AnimationClip>()
+            .Where(c => !c.name.StartsWith("__preview__"))
+            .ToList();
+        return character;
+    }
+
+    static List<ShaderLabController.LightingPreset> CreateLightingPresets() => new()
+    {
+        new() { displayName = "환경 기본", description = "환경 프리셋에 정해 둔 햇빛 그대로", useEnvironmentSun = true },
+        new() { displayName = "정면광", description = "카메라 쪽에서 비추는 빛. 그림자가 거의 없어 평평하게 보인다", useEnvironmentSun = false, sunAngles = new Vector2(25f, 180f) },
+        new() { displayName = "45° 키 라이트", description = "인물 사진의 기본 각도. 얼굴 한쪽에 삼각형 빛이 생긴다", useEnvironmentSun = false, sunAngles = new Vector2(40f, 135f) },
+        new() { displayName = "측면광", description = "옆에서 비춰 명암 경계(2단 명암·SSS)가 가장 잘 보인다", useEnvironmentSun = false, sunAngles = new Vector2(10f, 90f) },
+        new() { displayName = "역광", description = "뒤에서 비춰 윤곽만 밝다. 림 라이트·피부 투과광 확인용", useEnvironmentSun = false, sunAngles = new Vector2(20f, 0f), intensityScale = 1.2f },
+        new() { displayName = "탑라이트", description = "머리 위에서 내리꽂는 빛. 눈두덩·턱 밑 그늘 확인", useEnvironmentSun = false, sunAngles = new Vector2(85f, 180f) },
+        new() { displayName = "3점 조명 + 포인트", description = "환경 햇빛 + 따뜻한 포인트(횃불) + 차가운 역광 포인트. 추가 라이트 확인용", useEnvironmentSun = true, accentLights = true },
+    };
+
+    static Light CreatePointLight(Transform parent, string name, Vector3 position, Color color, float intensity, float range)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = position;
+        var l = go.AddComponent<Light>();
+        l.type = LightType.Point;
+        l.color = color;
+        l.intensity = intensity;
+        l.range = range;
+        l.shadows = LightShadows.None;
+        go.SetActive(false);
+        return l;
+    }
+
+    // ---- 배경 소품 ----
+    static void CreateFrozenProps()
+    {
+        var root = new GameObject(FrozenProps);
+        var snow = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Snow.mat", "Universal Render Pipeline/Lit");
+        snow.SetColor("_BaseColor", new Color(0.86f, 0.9f, 0.95f));
+        snow.SetFloat("_Smoothness", 0.35f);
+        var ground = CreateGround(root.transform, "Snow Ground", snow);
+
+        var ice = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Ice.mat", "Universal Render Pipeline/Lit");
+        ice.SetColor("_BaseColor", new Color(0.74f, 0.83f, 0.9f));   // 옅은 얼음색 (진하면 플라스틱처럼 보인다)
+        ice.SetFloat("_Smoothness", 0.92f);
+        var icePlate = CreateDisc(root.transform, "Ice Plate", ice, 2.2f);
+
+        CreateSnowfall(root.transform);
+        EditorUtility.SetDirty(snow);
+        EditorUtility.SetDirty(ice);
+        MarkReflectionStatic(ground, icePlate);
+    }
+
+    static void CreateStudioProps()
+    {
+        var root = new GameObject(StudioProps);
+        var floor = CreateOrLoadMaterial(EnvironmentMaterialDir + "/StudioFloor.mat", "Universal Render Pipeline/Lit");
+        floor.SetColor("_BaseColor", new Color(0.32f, 0.32f, 0.33f));
+        floor.SetFloat("_Smoothness", 0.3f);
+        EditorUtility.SetDirty(floor);
+        var ground = CreateGround(root.transform, "Studio Floor", floor);
+        var disc = CreateDisc(root.transform, "Turntable", CreateTurntableMaterial(), 1.6f);
+        MarkReflectionStatic(ground, disc);
+        root.SetActive(false);
+    }
+
+    static Material CreateTurntableMaterial()
+    {
+        var m = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Turntable.mat", "Universal Render Pipeline/Lit");
+        m.SetColor("_BaseColor", new Color(0.18f, 0.18f, 0.19f));
+        m.SetFloat("_Smoothness", 0.55f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static void CreateOutdoorProps()
+    {
+        var root = new GameObject(OutdoorProps);
+        var grass = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Field.mat", "Universal Render Pipeline/Lit");
+        grass.SetColor("_BaseColor", new Color(0.36f, 0.4f, 0.27f));
+        grass.SetFloat("_Smoothness", 0.15f);
+        EditorUtility.SetDirty(grass);
+        var ground = CreateGround(root.transform, "Field Ground", grass);
+
+        var stone = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Stone.mat", "Universal Render Pipeline/Lit");
+        stone.SetColor("_BaseColor", new Color(0.52f, 0.5f, 0.47f));
+        stone.SetFloat("_Smoothness", 0.25f);
+        EditorUtility.SetDirty(stone);
+        var plate = CreateDisc(root.transform, "Stone Plate", stone, 2.2f);
+        MarkReflectionStatic(ground, plate);
+        root.SetActive(false);
+    }
+
+    static GameObject CreateGround(Transform parent, string name, Material material)
+    {
+        var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        ground.name = name;
+        ground.transform.SetParent(parent, false);
+        ground.transform.localScale = Vector3.one * 3f;
+        ground.GetComponent<Renderer>().sharedMaterial = material;
+        return ground;
+    }
+
+    static GameObject CreateDisc(Transform parent, string name, Material material, float diameter)
+    {
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = name;
+        disc.transform.SetParent(parent, false);
+        disc.transform.position = new Vector3(0f, -0.01f, 0f);
+        disc.transform.localScale = new Vector3(diameter, 0.02f, diameter);
+        disc.GetComponent<Renderer>().sharedMaterial = material;
+        Object.DestroyImmediate(disc.GetComponent<Collider>());
+        return disc;
+    }
+
+    // 반사 프로브에 찍히도록 배경은 static
+    static void MarkReflectionStatic(params GameObject[] objects)
+    {
+        foreach (var go in objects)
+            GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.ReflectionProbeStatic);
+    }
+
+    static void CreateSnowfall(Transform parent)
     {
         var mat = CreateOrLoadMaterial(EnvironmentMaterialDir + "/Snowflake.mat", "Universal Render Pipeline/Particles/Unlit");
         mat.SetTexture("_BaseMap", AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd"));
@@ -466,6 +831,7 @@ public static class SemiRealInkTestSetup
         EditorUtility.SetDirty(mat);
 
         var go = new GameObject("Snowfall");
+        go.transform.SetParent(parent, false);
         go.transform.position = new Vector3(0f, 6f, 0f);
         var ps = go.AddComponent<ParticleSystem>();
 
@@ -500,9 +866,102 @@ public static class SemiRealInkTestSetup
         renderer.renderMode = ParticleSystemRenderMode.Billboard;
     }
 
+    // ---- 환경마다 반사 큐브맵 굽기 ----
+    static void BakeEnvironmentReflections(List<EnvironmentPreset> environments, Light sun, ReflectionProbe probe)
+    {
+        foreach (var env in environments)
+        {
+            PreviewEnvironment(env, sun, null);
+            var path = $"{EnvironmentDir}/{env.name}_Reflection.exr";
+            if (!Lightmapping.BakeReflectionProbe(probe, path))
+            {
+                Debug.LogWarning($"'{env.displayName}' 반사 굽기에 실패했습니다. 금속 반사가 하늘만 비칠 수 있습니다.");
+                continue;
+            }
+            AssetDatabase.ImportAsset(path);
+            env.reflection = AssetDatabase.LoadAssetAtPath<Texture>(path);
+            EditorUtility.SetDirty(env);
+        }
+        AssetDatabase.SaveAssets();
+    }
+
+    // 에디터에서 환경을 미리 적용 (실행 중에는 ShaderLabController가 같은 일을 한다)
+    static void PreviewEnvironment(EnvironmentPreset env, Light sun, Volume volume)
+    {
+        RenderSettings.skybox = env.skybox;
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = env.ambientSky;
+        RenderSettings.ambientEquatorColor = env.ambientEquator;
+        RenderSettings.ambientGroundColor = env.ambientGround;
+        RenderSettings.fog = env.fog;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogColor = env.fogColor;
+        RenderSettings.fogDensity = env.fogDensity;
+        sun.transform.rotation = Quaternion.Euler(env.sunAngles.x, env.sunAngles.y, 0f);
+        sun.color = env.sunColor;
+        sun.intensity = env.sunIntensity;
+        sun.shadowStrength = env.shadowStrength;
+        foreach (var name in new[] { FrozenProps, StudioProps, OutdoorProps })
+        {
+            var root = EditorSceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == name);
+            if (root != null)
+                root.SetActive(name == env.propsRoot);
+        }
+        if (volume != null)
+            volume.sharedProfile = env.profile;
+        DynamicGI.UpdateEnvironment();
+    }
+
+    // ---- UI Toolkit 패널 설정 ----
+    static PanelSettings CreatePanelSettings()
+    {
+        var themePath = $"{UiDir}/ShaderLabTheme.tss";
+        if (!File.Exists(themePath))
+        {
+            File.WriteAllText(themePath, "@import url(\"unity-theme://default\");\n");
+            AssetDatabase.ImportAsset(themePath);
+        }
+        var path = $"{UiDir}/ShaderLabPanelSettings.asset";
+        var settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(path);
+        if (settings == null)
+        {
+            settings = ScriptableObject.CreateInstance<PanelSettings>();
+            AssetDatabase.CreateAsset(settings, path);
+        }
+        settings.themeStyleSheet = AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>(themePath);
+        settings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
+        settings.referenceResolution = new Vector2Int(1920, 1080);
+        settings.match = 0.5f;
+        EditorUtility.SetDirty(settings);
+        AssetDatabase.SaveAssets();
+        return settings;
+    }
+
     // ------------------------------------------------------------------
     // 도우미
     // ------------------------------------------------------------------
+    static T CreateOrLoadAsset<T>(string path, bool reset, Action<T> fill) where T : ScriptableObject
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+        if (asset != null && !reset)
+            return asset;
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+        }
+        else
+        {
+            // 되돌리기: 빈 값으로 덮은 뒤 다시 채운다
+            var blank = ScriptableObject.CreateInstance<T>();
+            EditorUtility.CopySerialized(blank, asset);
+            Object.DestroyImmediate(blank);
+        }
+        fill(asset);
+        EditorUtility.SetDirty(asset);
+        return asset;
+    }
+
     static Material CreateOrLoadMaterial(string path, string shaderName)
     {
         var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -534,7 +993,7 @@ public static class SemiRealInkTestSetup
                 return i;
             }
         }
-        throw new System.InvalidOperationException($"빈 레이어 칸이 없어 '{layerName}' 레이어를 만들 수 없습니다.");
+        throw new InvalidOperationException($"빈 레이어 칸이 없어 '{layerName}' 레이어를 만들 수 없습니다.");
     }
 
     static void SetLayerRecursively(GameObject go, int layer)
@@ -551,16 +1010,5 @@ public static class SemiRealInkTestSetup
         var parent = Path.GetDirectoryName(path).Replace('\\', '/');
         EnsureFolder(parent);
         AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
-    }
-
-    static Bounds GetBounds(GameObject go)
-    {
-        var renderers = go.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-            return new Bounds(Vector3.up, new Vector3(1, 2, 1));
-        var b = renderers[0].bounds;
-        foreach (var r in renderers)
-            b.Encapsulate(r.bounds);
-        return b;
     }
 }
