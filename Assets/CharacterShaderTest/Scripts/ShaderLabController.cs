@@ -162,11 +162,17 @@ public class ShaderLabController : MonoBehaviour
                 continue;
             var root = FindSceneObject(other.propsRoot);
             if (root != null)
-                root.SetActive(other == env);
+                root.SetActive(other.propsRoot == env.propsRoot);   // 여러 환경이 같은 소품을 쓸 수 있어 이름으로 비교
         }
 
         if (volume != null)
         {
+            // 프로필이 바뀌면 지난 환경의 복사본을 버린다. 안 버리면 Volume은 옛 복사본만 보고 sharedProfile은 무시한다
+            if (volume.sharedProfile != env.profile && volume.HasInstantiatedProfile())
+            {
+                Destroy(volume.profile);
+                volume.profile = null;
+            }
             volume.sharedProfile = env.profile;
             // volume.profile을 읽으면 복사본이 생긴다 → 플레이 중 후처리를 끄고 켜도 프로필 파일은 그대로
             if (env.profile != null)
